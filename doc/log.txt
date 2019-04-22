@@ -1,0 +1,231 @@
+___________________________________________________________________________________________________________________________________________________________
+23.3. 2019 Zadání:
+
+Mé zadání je vytvořit portable multithreaded knihovnu schnopnou:
+	1. Kopírovat a přesouvat soubory a adresáře
+	2. Mazat soubory a adresáře
+	3. Třídit soubory a adresáře
+	4. Vyhledávat soubory a adresáře
+
+Mohu využít std::filesystem.
+___________________________________________________________________________________________________________________________________________________________
+23.3. 2019 Snahy a cíle:
+
+Chtěl bych vytvořit knihovnu, která se soustředí na tyto cíle (seřazené dle priority):
+	1. Jednoduchost v použití
+	2. Rychlost
+	3. Rozšířitelnost
+
+
+Architektura:
+
+Dospěl jsem k názoru, že bych chtěl knihovnu udělat co nejjednoduší a to jak z pohledu použití tak i z pohledu návrhu. Budu se snažit trochu myslet na rozšířitelnost, ale vzhledem k mé malé zkušenosti se mi 100%
+	rozšiřitelný program napsat nepodaří.
+
+Co nejjednoduší návrh vytvořím tak, že postupně budu do koncepce návrhu zahrnovat další a další požadavky (funkčnost) a pozorovat jaký to má vliv na knihovnu.
+
+	I. Knihovna musí být schopná provádět operace nad soubory/adresáři
+			- Tedy knihovna by mohla vypadat cca takto:
+
+result oper(args) { ... }
+
+			, kde ... je přímá implementace daných operací (s pomocí std::filesystem).
+
+
+
+	II. Chci maximalizovat práci, kterou knihovna provede na jednotku "úkolu".
+			- Tento požadavek vychází z pravděpodobného budoucího použití (, do kterého nebudu zabíhat {cena volání PInvoku}) a ze zjevného faktu, že bychom chtěli (např.) kopírovat víc souborů najednou.
+			Knihovna se nám změní takto:
+
+vector<result> oper(vector<args>) { return[i] oper(args[i]) }
+
+			, kde tělo funkce je pouze cyklus přes argumenty.
+
+
+
+	III. Knihovna by měla pracovat s více vlákny
+			- Očividně se práce bude muset rozdělit mezi několik vláken. Jenže kolik vláken? Knihovna sama by mohla mít někde uchovaný limit, nebo bychom mohli limit předávat při volání. První z principů vnímám jako
+			složitější řešení (je nutná synchronizace přes několik vláken) toho samého problému a tak ikdyž bych chtěl API nechat jednoduché, zvolím druhý způsob řešení.
+			Tedy knihovna by vypadala zhruba takto:
+
+vector<future<result>> oper(vector<args>, max_num_of_threads) {
+	// Somehow decide how many threads should be used in each subcall. In other words, split the set of jobs, into subsets, where each subset gets one thread.
+
+	return[i:j] task{ oper(args[i:j]) }.get_future() 	// a = set[i:j] ... some subset of a
+}
+
+				Toto je pseudokód, tedy neříkám, že funkce bude vracet přímo future. Jen jsem chtěl naznačit, že půjde o asynchroní volání. Jak už komentář naznačuje, knihovna by měla rozhodnout (nejlépe optimalizovat)
+				kolik operací provede jedno vlákno.
+
+				(
+				To znamená, že jeden argument může být prováděn maximálně v jednom vlákně. Toto nemusí, ale teké může zpomalovat program. Vezměme si například 10GB soubor a kopírování nebo přesun. Ikdyž zrychlení
+				není zaručené, není rozhodně vyloučené. Nicméně už kvůli tomu, že std::filesystem nenabízí API pro více vláknové kopírování jednoho souboru, se tímto nebudu zabývat. Pro budoucí vylepšení by bylo možné
+				přidat funkci, které by se předal soubor a počet vláken. Tuto funkci pak lze volat namísto "return[i:j] thread{ oper(args[i:j]) }".
+				)
+
+				Abych se vrátil ke kódu; bude nutné napsat "vrstvu," která by optimalizovala výkon tím, že by rozdělovala práci mezi několik vláken. Toto je velmi složité zařídit, proto , i přesto, že usiluji o to, aby
+				knihovna byla rychlá, nebudu tuto optimalizační vrstvu psát celou. Spíše ji naznačím a možná naimplementuju nějaké heureistiky.
+
+
+
+	IV. Nechceme zaměstnávat volající vlákno
+			- Ikdyž optimalizace musí být daleko rychlejší než samotná operace, stále se dá očekávat, že nějaký čas potrvají. Navíc uživatel knihovny jistě nedoufá, že se mu 1 GB dat překopíruje hned. Proto celou
+			knihovnu obalím do "wrapperu," který vytvoří nové vlákno, kde se bude odehrávat zbytek práce (vše co jsem dosud vysvětloval) a vrátí uživateli knihovny "future."
+
+
+vector<future<result>> oper(vector<args>, max_num_of_threads) {
+	return task { ... }
+}
+
+			, kde ... je zavolání funkce z bodu III.
+
+
+	MOŽNÉ DALŠÍ POŽADAVKY NA KNIHOVNU:
+	V. Thread-savovost knihovny
+		- Logickým požadavkem na knihovnu je, aby jí uživatel mohl volat z více vláken naráz. Na to stačí abych zajistil, že nebudou žádné data-races. To se ale týká spíše implementace knihovny než jejího návrhu.
+
+	VI. Modularita
+		- Dalším logickým požadavkem je, aby uživatel mohl měnit její chování. (Například předat knihovně vlastní optimalizační vrstvu.) Tomuto tématu se přímo nebudu věnovat, ale budu se ho snažit mít na paměti.
+
+
+Poté co jsem architekturu celé knihovny vyjádřil s pomocí několika funkcí, si ji teď rozepíšu a dám jí konkrétní podobu.
+
+																	  							+-----------------------------+
+																	  +-----------------------> |validate           namespace |
+																	  |                         +-----------------------------+
+																	  |                         |                             |
+																	  |                         | bool valid_copy(file, file) |
+																	  |                         | ...                         |
++-----------------------------------------------------------+         |                         |                             |
+|mfo                                                  class |         |                         +-----------------------------+
++-----------------------------------------------------------+         |
+|                                                           |  +------+
+|  vector<result> oper(vector<args>, max_number_of_threads) |         |
+|  ...                                                      |         |                         +-----------------------------------------------------------------+
++-----------------------------------------------------------+         +-----------------------> |optimalizer                                                class |
+																	  |                         +-----------------------------------------------------------------+
+																	  |                         |                                                                 |
+																	  |                         | vector<vector<file>> for_copy(vector<args>, max_num_of_threads) |
+																	  |                         | ...                                                             |
+																	  |                         |                                                                 |
+																	  |                         +-----------------------------------------------------------------+
+																	  |
+																	  |
+																	  |
+																	  |                         +---------------------------------+
+																	  +-----------------------> |operate                namespace |
+																								+---------------------------------+
+																								|                                 |
+																								| future<result> copy(file, file) |
+																								| ...                             |
+																								|                                 |
+																								+---------------------------------+
+
+
+
+Třída mfo(multithreaded file operations)
+	- Tato třída má sloužit pouze jako obalení knihovny a poskytnutí jednoduššího API. Stále si nejsem jist, zda jsem neměl pouze do jednoho namespacu "nacpat" příslušné metody a nechat uživatele ať
+	stav, který by si knihovna jinak uchovávala, předá při volání. Jedná se o dva přístupy, které mají své pro a proti (a jejichž kombinace by byla zmatečná), ale nakonec jsem se rozhodl API uzavřít do třídy.
+	Hlavně kvůli tomu, že jasně vymezuje co je interface knihovny, umožňuje si šikovně pamatovat stav, ve kterém knihovna je, umožňuje nabídnutí jednodušího API. Negativem tohoto přístupu je, že uživatel knihovnu
+	musí inicializovat. (Ale kdydby programátor chtěl překopírovat jeden soubor, asi se neobtěžuje s celou knihovnou.)
+
+	- Do této třídy jsem zahrnul i onen "wrapper," probraný v bodu IV.
+
+Namespace validate
+	- Namespace ve kterém budu uchovávat metody, které zvalidují danou operaci. Za normálních okolností by se operace validovala až těsně před svým provedením, ale zde je logické operaci nejdřív zvalidovat a pak až
+	optimalizovat.
+
+Třída optimalizer
+	- Třída, která optimalizuje jednotlivé operace. Je více než pravděpodobné, že si pokročilejší optimalizéry budou uchovávat nějakou cache, či stav, proto jsem zvolil třídu. Z toho samého důvodu jsem také optimalizační
+	funkce shluknul do jedné třídy.
+	- Další idea, která mě vedla k implementaci optimalizeru jako třídy, je modularita. V příštích verzích knihovny by pak mohlo být možné mfo předat jiný optimalizér, než ten defaultní.
+
+Namespace operate
+	- Namespace se všemi operacemi.
+
+
+Samozřejmě, že budou existovat typy a namespacy mimo výše zmíněné, ale ty nejsou důležité pro architekturu knihovny.
+Tedy použití knihovny bude cca takovéhle:
+	- Uživatel zinicializuje mfo
+	- zavolá API mfo
+	- mfo zinicializuje nové vlákno, pustí v něm funkci X a vrátí future uživateli
+	- funkce X zvaliduje operaci, předá ji optimalizéru a následně vytvoří tolik vláken kolik optimalizér určil a vrátí futures
+
+___________________________________________________________________________________________________________________________________________________________
+23.3. 2019 Naming Convention
+
+#ifndef NAMESPACE_NAMES_THEN_PRIMARY_CLASS_OR_FUNCTION_THEN_HPP
+#define NAMESPACE_NAMES_THEN_PRIMARY_CLASS_OR_FUNCTION_THEN_HPP
+
+#include <boost/headers/go/first>
+#include <boost/in_alphabetical/order>
+#include <then_standard_headers>
+#include <in_alphabetical_order>
+
+#include "then/any/detail/headers"
+#include "in/alphabetical/order"
+#include "then/any/remaining/headers/in"
+// (you'll never guess)
+#include "alphabetical/order/duh"
+
+#define NAMESPACE_NAMES_THEN_MACRO_NAME(pMacroNames) ARE_ALL_CAPS
+
+namespace lowercase_identifers
+{
+    class separated_by_underscores
+    {
+    public:
+        void because_underscores_are() const
+        {
+            volatile int mostLikeSpaces = 0; // but local names are condensed
+
+            while (!mostLikeSpaces)
+                single_statements(); // don't need braces
+
+            for (size_t i = 0; i < 100; ++i)
+            {
+                but_multiple(i);
+                statements_do();
+            }
+        }
+
+        const complex_type& value() const
+        {
+            return mValue; // no conflict with value here
+        }
+
+        void value(const complex_type& pValue)
+        {
+            mValue = pValue ; // or here
+        }
+
+    protected:
+        // the more public it is, the more important it is,
+        // so order: public on top, then protected then private
+
+        template <typename Template, typename Parameters>
+        void are_upper_camel_case()
+        {
+            // gman was here
+        }
+
+    private:
+        complex_type mValue;
+    };
+}
+
+#endif
+
+___________________________________________________________________________________________________________________________________________________________
+24.3. 2019 GIT a adresáře
+
+Struktura projektu:
+	/bin - spustitelné soubory
+	/doc - dokumentace
+	/include - API knihovny
+	/src - zdrojové soubory knihovny
+	/test - zdrojové soubory testů
+
+Knihovna je pod správou gitu, vždy po významné změně sem vrazím git log. %todo
+
+
