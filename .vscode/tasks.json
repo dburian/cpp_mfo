@@ -10,14 +10,17 @@
     },
     "tasks": [
         {
-            "label": "test",
+            "label": "build test operate",
             "type": "shell",
             "command": "g++",
             "args": [
                 "-g",
-                "-o",
-                "bin/mfo.test",
-                "test/test.cpp"
+                "-Wall",
+                "-std=c++17",
+                "-o", "bin/operate_test.out",
+                "test/operate_test.cpp",
+                "src/operate.cpp",
+                "-l", "stdc++fs"
             ],
             "group": {
                 "kind": "build",

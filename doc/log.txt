@@ -73,7 +73,7 @@ vector<future<result>> oper(vector<args>, max_num_of_threads) {
 			knihovnu obalím do "wrapperu," který vytvoří nové vlákno, kde se bude odehrávat zbytek práce (vše co jsem dosud vysvětloval) a vrátí uživateli knihovny "future."
 
 
-vector<future<result>> oper(vector<args>, max_num_of_threads) {
+future<vector<future<result>>> oper(vector<args>, max_num_of_threads) {
 	return task { ... }
 }
 
@@ -229,3 +229,69 @@ Struktura projektu:
 Knihovna je pod správou gitu, vždy po významné změně sem vrazím git log. %todo
 
 
+___________________________________________________________________________________________________________________________________________________________
+22.4. 2019 Namespace operate
+
+V zájmu jasnosti návrhu nechám na operacích ať pouze kopírují a o zbytek se postarají vyšší vrstvy. (O validitu operací se postará namespace validate, o multivláknovost se postará vrstva "jobů" pod 
+	optimalizační vrstvou)
+
+Jelikož je namespace operate vlastně jen předefinovává funkce z namespacu std::filesystem, je nutné se podívat, jaké API knihovna filesystem nabízí. U několika funkcí std::filesystem poskytuje, dvě verze funkcí.
+Jednu sadu pro oznamování chyb návratovým parametrem a druhou sadu funkcí, která chyby oznamuje vyhozením vyjímky. Vzhledem k tomu, že hlavní chyby budu detekovat ve validační vrstvě, nedojde k velkému zpomalení
+vyjímkami pokud se rozhodnu použít druhou sadu funkcí. Navíc se tím kód zpřehlední.
+
+Za zmínku stojí, že API std::filesystem neposkytuje žádnou možnost jak monitorovat progress operací, proto funkce v operate budou vracet pouze bool, jako příznak úspěchu operace.
+
+
+Copy
+
+API nabízí hned dvě funkce pro kopírování dat; copy a copy_file. První z nich je obecnější a volá tu druhou "ve správných situacích". Druhá je specifičtější a neumožňuje např. vytvářet symlinky. Jelikož se
+nechci honit za každou milisekundou(copy_file dělá jednu či dvě operace redundantně), budu volat copy.
+
+Navíc copy nabízí bližší specifikování chování funkce díky parametru std::filesystem::copy_options. Nabízí se tedy otázka, zda nenapsat metodu operate::copy podobně multifunkčně. Jelikož, ale ještě nevím zda
+rozšířená funkčnost std::filesystem::copy je potřebná nechám první implementaci funkce operate::copy jednoduchou a copy_options nebudu používat.
+
+
+Move
+
+Není co řešit. Implementace pomocí std::filesystem::rename.
+
+
+Remove
+
+std::filesystem nabízí hned dvě metody na vymazání souborů a adresářů; remove a remove_all. remove odstraní prázdný adresář nebo libovolný soubor a remove_all odstraní rekurzivně i zaplněný adresář. Mazání
+je velmi rychlé a proto operate::remove bude volat přímo remove_all (zdá se, že remove_all dokáže odstranit i jedinný soubor). Fuknce vrací počet smazaných adresářů či souborů.
+
+
+Vyhledávání
+
+Stejně jako funkce operate::copy, operate::move a operate::remove představují tu nejmenší jednotku práce i operate::find jsem koncipoval jako nejjednodušší vyhledávání. std::filesystem nabízí dvě možnosti
+jak proiterovat adresář; std::filesystem::directory_iterator a std::filesystem::recursive_directory_iterator. Druhý z nich umí velde jednoduchého projití adresáře(funkcionalita prvního zmíněného iterátoru)
+i rekurzivně projít adresáře pod ním. Moje implementace metody operate::find tedy bude spoléhat na rekurzivní iterátor, jelikož je obecnější a lze očekávat, že nebude o mnoho pomalejší. Na druhou stranu
+implementace s rekurzivním iterátorem neumožňuje procházení limitovat hloubkou zanoření.
+
+Konstruktor obou nabízí specifikaci chování iterátoru pomocí directory_options (pouze 2 možnosti jak dodefinovat chování iterátoru).
+
+Pro umožnění obecného vyhledávání jsem find přejmenoval na find_if, kterému je nutné předat predikát, který ověří nalezení (POZOR! Predikát musí být reentrantní). Navíc aby se například daly hledat
+skupiny souborů se společnými vlastnostmi algoritmus se nezastaví při prvním nálezu. Také proto funkce vrací vector cest k nalezeným souborům a né pouze jednu cestu.
+
+Je možné, že se časem vynoří use-case, ve kterém množina souborů, ve které je vyhledáváno neleží ve společném adresáři a nebo v jejich společném adresáři jsou i další soubory/adresáře, ve kterých nechceme
+hledat. Poté by bylo nutné vyhledávání zobecnit na funkci přijímající iterátor na první a na poslední prohledávanou cestu. Tím by se ale ovládání této operace ještě zkomplikovalo. V první implementaci bude
+tedy pouze první varianta.
+
+Abych tedy shrnul vyhledávání: v první implementaci je značně omezeno, kde se vyhledává. Dá se pouze vyhledávat v rámci jednoho, nebo více podstromů file sytému, ale podstrom se vždy prohledá celý. Pokud
+by byla tato funkčnost nežádoucí, je potřeba zvolit jiný přístup.
+
+
+Třídění
+
+Multivláknové třídění se vyplatí až od celkem vysokého počtu tříděných prvků a proto celá knihovna bude třídit jednovláknově. Z tohoto důvodu chybí use case, který by použil abstrakci operate::sort jako tu
+nejmenší jednotku práce a proto bude třídění vykonáváno na vyšších úrovních a do ns operate ho vůbec nezahrnu.
+
+
+
+V tomto namespacu budou tedy pouze tyto funkce:
+
+	bool copy(const std::filesystem::path& from, const std::filesystem::path& to)
+	bool move(const std::filesystem::path& from, const std::filesystem::path& to)
+	std::uintmax_t remove(const std::filesystem::path& target)
+	std::vector<std::filesystem::path> find_if(const std::filesystem::path& in_dir, UnaryPredicate p)
