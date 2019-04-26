@@ -267,31 +267,30 @@ Vyhledávání
 Stejně jako funkce operate::copy, operate::move a operate::remove představují tu nejmenší jednotku práce i operate::find jsem koncipoval jako nejjednodušší vyhledávání. std::filesystem nabízí dvě možnosti
 jak proiterovat adresář; std::filesystem::directory_iterator a std::filesystem::recursive_directory_iterator. Druhý z nich umí velde jednoduchého projití adresáře(funkcionalita prvního zmíněného iterátoru)
 i rekurzivně projít adresáře pod ním. Moje implementace metody operate::find tedy bude spoléhat na rekurzivní iterátor, jelikož je obecnější a lze očekávat, že nebude o mnoho pomalejší. Na druhou stranu
-implementace s rekurzivním iterátorem neumožňuje procházení limitovat hloubkou zanoření.
+implementace s rekurzivním iterátorem neumožňuje procházení limitovat hloubkou zanoření. Lze očekávat, že uživatel bude chtít mít větší kontrolu nad tím, kde se vyhledává. Proto nadefinuji i další funkci, která
+bude hledat pouze v hloubce 1, v daném adresáři.
 
 Konstruktor obou nabízí specifikaci chování iterátoru pomocí directory_options (pouze 2 možnosti jak dodefinovat chování iterátoru).
 
 Pro umožnění obecného vyhledávání jsem find přejmenoval na find_if, kterému je nutné předat predikát, který ověří nalezení (POZOR! Predikát musí být reentrantní). Navíc aby se například daly hledat
-skupiny souborů se společnými vlastnostmi algoritmus se nezastaví při prvním nálezu. Také proto funkce vrací vector cest k nalezeným souborům a né pouze jednu cestu.
-
-Je možné, že se časem vynoří use-case, ve kterém množina souborů, ve které je vyhledáváno neleží ve společném adresáři a nebo v jejich společném adresáři jsou i další soubory/adresáře, ve kterých nechceme
-hledat. Poté by bylo nutné vyhledávání zobecnit na funkci přijímající iterátor na první a na poslední prohledávanou cestu. Tím by se ale ovládání této operace ještě zkomplikovalo. V první implementaci bude
-tedy pouze první varianta.
-
-Abych tedy shrnul vyhledávání: v první implementaci je značně omezeno, kde se vyhledává. Dá se pouze vyhledávat v rámci jednoho, nebo více podstromů file sytému, ale podstrom se vždy prohledá celý. Pokud
-by byla tato funkčnost nežádoucí, je potřeba zvolit jiný přístup.
+skupiny souborů se společnými vlastnostmi algoritmus se nezastaví při prvním nálezu. Také proto funkce vrací vector filesystem::directory_entry.
 
 
 Třídění
 
 Multivláknové třídění se vyplatí až od celkem vysokého počtu tříděných prvků a proto celá knihovna bude třídit jednovláknově. Z tohoto důvodu chybí use case, který by použil abstrakci operate::sort jako tu
-nejmenší jednotku práce a proto bude třídění vykonáváno na vyšších úrovních a do ns operate ho vůbec nezahrnu.
+nejmenší jednotku práce a proto bude třídění vykonáváno na vyšších úrovních a do jmenného prostoru operate ho vůbec nezahrnu.
 
 
 
-V tomto namespacu budou tedy pouze tyto funkce:
+V tomto jmenném prostoru budou tedy pouze tyto funkce:
 
 	bool copy(const std::filesystem::path& from, const std::filesystem::path& to)
+
 	bool move(const std::filesystem::path& from, const std::filesystem::path& to)
+
 	std::uintmax_t remove(const std::filesystem::path& target)
-	std::vector<std::filesystem::path> find_if(const std::filesystem::path& in_dir, UnaryPredicate p)
+
+	std::vector<std::filesystem::directory_entry> find_if(const std::filesystem::path& in_dir, UnaryPredicate p)
+	std::vector<std::filesystem::directory_entry> find_if_local(const std::filesystem::path& in_dir, UnaryPredicate p)
+	
