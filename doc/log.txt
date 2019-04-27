@@ -67,7 +67,7 @@ vector<future<result>> oper(vector<args>, max_num_of_threads) {
 				knihovna byla rychlá, nebudu tuto optimalizační vrstvu psát celou. Spíše ji naznačím a možná naimplementuju nějaké heureistiky.
 
 
-
+	MOŽNÉ DALŠÍ POŽADAVKY NA KNIHOVNU:
 	IV. Nechceme zaměstnávat volající vlákno
 			- Ikdyž optimalizace musí být daleko rychlejší než samotná operace, stále se dá očekávat, že nějaký čas potrvají. Navíc uživatel knihovny jistě nedoufá, že se mu 1 GB dat překopíruje hned. Proto celou
 			knihovnu obalím do "wrapperu," který vytvoří nové vlákno, kde se bude odehrávat zbytek práce (vše co jsem dosud vysvětloval) a vrátí uživateli knihovny "future."
@@ -79,8 +79,8 @@ future<vector<future<result>>> oper(vector<args>, max_num_of_threads) {
 
 			, kde ... je zavolání funkce z bodu III.
 
+			- Ještě stále tento bod zvažuji, neboť je zvláštní, aby uživatel dvakrát "rozbaloval" future.
 
-	MOŽNÉ DALŠÍ POŽADAVKY NA KNIHOVNU:
 	V. Thread-savovost knihovny
 		- Logickým požadavkem na knihovnu je, aby jí uživatel mohl volat z více vláken naráz. Na to stačí abych zajistil, že nebudou žádné data-races. To se ale týká spíše implementace knihovny než jejího návrhu.
 
@@ -129,7 +129,7 @@ Třída mfo(multithreaded file operations)
 	Hlavně kvůli tomu, že jasně vymezuje co je interface knihovny, umožňuje si šikovně pamatovat stav, ve kterém knihovna je, umožňuje nabídnutí jednodušího API. Negativem tohoto přístupu je, že uživatel knihovnu
 	musí inicializovat. (Ale kdydby programátor chtěl překopírovat jeden soubor, asi se neobtěžuje s celou knihovnou.)
 
-	- Do této třídy jsem zahrnul i onen "wrapper," probraný v bodu IV.
+	//- Do této třídy jsem zahrnul i onen "wrapper," probraný v bodu IV.
 
 Namespace validate
 	- Namespace ve kterém budu uchovávat metody, které zvalidují danou operaci. Za normálních okolností by se operace validovala až těsně před svým provedením, ale zde je logické operaci nejdřív zvalidovat a pak až
@@ -165,7 +165,6 @@ ________________________________________________________________________________
 #include "then/any/detail/headers"
 #include "in/alphabetical/order"
 #include "then/any/remaining/headers/in"
-// (you'll never guess)
 #include "alphabetical/order/duh"
 
 #define NAMESPACE_NAMES_THEN_MACRO_NAME(pMacroNames) ARE_ALL_CAPS
@@ -191,12 +190,12 @@ namespace lowercase_identifers
 
         const complex_type& value() const
         {
-            return mValue; // no conflict with value here
+            return m_value; // no conflict with value here
         }
 
-        void value(const complex_type& pValue)
+        void value(const complex_type& value)
         {
-            mValue = pValue ; // or here
+            m_value = value ; // or here
         }
 
     protected:
@@ -210,7 +209,7 @@ namespace lowercase_identifers
         }
 
     private:
-        complex_type mValue;
+        complex_type m_value;
     };
 }
 
@@ -226,8 +225,7 @@ Struktura projektu:
 	/src - zdrojové soubory knihovny
 	/test - zdrojové soubory testů
 
-Knihovna je pod správou gitu, vždy po významné změně sem vrazím git log. %todo
-
+Knihovna je pod správou gitu.
 
 ___________________________________________________________________________________________________________________________________________________________
 22.4. 2019 Namespace operate
@@ -293,4 +291,122 @@ V tomto jmenném prostoru budou tedy pouze tyto funkce:
 
 	std::vector<std::filesystem::directory_entry> find_if(const std::filesystem::path& in_dir, UnaryPredicate p)
 	std::vector<std::filesystem::directory_entry> find_if_local(const std::filesystem::path& in_dir, UnaryPredicate p)
+
+
+___________________________________________________________________________________________________________________________________________________________
+26.4. 2019 Named requirements: optimalizer, třídy job(, job_db) a operation_result. 
+
+API optimalizeru
+
+	Už jsem si ujasnil jakou úlohu bude optimalizér hrát v celkovém návrhu knihovny. Bude rozdělovat práci mezi vlákna. Nabízí se tedy, aby metody optimalizéru vracely nějaké škatulky, které budou mít jadnoznačně
+	definovanou práci. Očekává se, že v pozdějších implementacích bude někdo ke škatulkám přistupovat a zjišťovat např. jejich stav. Proto je obalím speciální třídou job. job, kromě jiného, bude obsahovat typ 
+	operace, operandy operace a také "future" výsledku. Aby se mi tyto joby jen tak někde nepoflakovaly, vytvořím na ně seznam job_db, kde je budu uchovávat. Jak k job_db tak k job, nemám pevně definovaný
+	use-case a tedy	ani pevné požadavky na jejich funkčnost. Zavádím je spíš proto, že je víceméně zřejmé, že budou potřeba. Už jen pro jednodušší zacházení s joby - alternativní přístup je, aby joby vlastnila
+	mfo či optimalizer.	Ani jedna z možností nenabízí pozitiva, spíše negativa (třídy by najednou prováděli o jednu úlohu navíc a tak by abstrakce nebyly tak jasné a bylo by těžší se v kódu orientovat).
+
+	Teď stačí ještě rozmyslet s jakým parametrem se budou optimalizační metody volat. Parametry budou muset nést argumenty operací a počet vláken. Nabízí se možnost parametry, konkrétně argumenty operací,
+	obalit do nějakého objektu, ale myslím, že to není potřeba. Tedy například copy bude brát vector párů cest, tj. const std::vector<std::pair<std::filesystem::path, std::filesystem::path>>&.
+
+	Než najisto rozepíšu API optimalizeru, chci se ujistit, že takto navržené metody budou fungovat v celo-knihovním měřítku. Zvláště pak princip jobů.
+
+
+Detailnější použití knihovny
+
+Čili představuji si to zhruba takto:
+	- mfo po validaci zavolá třídu 'O', která splňuje pojmenované požadavky 'optimalizer'
+	- třída 'O' rozdělí práci mezi více jobů, které vrátí ve vektoru (lokální proměnná se bude vracet pomocí move-ctoru vektoru)
+	- třída mfo pak spustí tyto joby skrz job_db, získá jejich futures a ty vrátí volajícímu (uživateli)
+	- uživatel pak někdy zavolá na této future .get() a tedy vlákna vždy musí doběhnout
+
+	--> Vzniká tu problém úklidu: kdo je zodpovědný za destrukci jobu (který se už postará o destrukci svých vlastních objektů)?
+
+ - Implementace vláknovitosti a problém úklidu
+
+Ještě se vrátím k problému úklidu: kdo je zodpovědný za destrukci jobu (který se už postará o destrukci svých vlastních objektů)? Většinou objekty úklízí ten, kdo je vytvořil. V tomto případě je vytváří třída 'O'
+, ale ta vlastně jen velký job rozděluje mezi více menších jobů. Tedy ten, kdo vytvoří velký job, by měl být i zodpovědný za jeho destrukci a tím i za destrukci jeho částí, tedy menších jobů. Velký job ale
+vytváří uživatel, po kterém nemůžu chtít ať se stará o životnost vnitřních objektů knihovny. Jelikož počítám s job_db jako opravdu hloupou databází (slouží pouze jako odkladní plocha), nemůžu ani po ní 
+chtít, aby věděla kdy, jaký job skončil a tedy aby i věděla kdy ho zničit. Narážím tu na problém, kdy životnost vytvořeného objektu není ohraničená. Vím jen, že objekt jobu bude neužitečný potom co si 
+uživatel vyzvedne jeho výsledek. Tedy kdybychom uživateli vraceli výsledek zabalený v nějaké třídě (operation_result), jejíž destruktor zajistí i zničení původního jobu, dávalo by to jistou logiku. Navíc uživatel jasně bude 
+vědět, který future se váže ke konkrétní operaci.
+
+Tedy pro upřesnění ještě jednou detailněji popíšu, jak se knihovna bude chovat (wrapper pro jednoduchost vynechán):
+	- uživatel zavolá mfo s konkrétním vectorem argumentů pro danou operaci (např. pro kopírování vektor párů cest).
+		- mfo zvaliduje operace (ošetření chybných stavů se dořeší pak)
+			- namespace validate
+		- mfo poté předá referenci na argumenty optimalizéru 
+			- optimalizér vrací vektor jobů (vracení bude rychlé díky výše zmíněnému mechanizmu - move-ctor vektoru)
+		//- mfo joby movne do job_db
+		- mfo joby rozeběhne
+		- mfo z jobů dostane jejich odpovídající operation_result, ktera v sobě budou mít unique_ptr na svůj job a tedy i na argumenty, se kterými byl job spuštěn
+		- mfo vrátí vektor operation_result
+	- uživatel si bude moci prohlížet joby skrz pointry v operation_result joby a na kterýkoliv si bude moci počkat
+	- pokud uživatel operation_result zničí, znamená to, že uživatel musí počkat až operace doběhne
+		--> Není to ideální, ale prozatím postačí. Naschvál v implementaci nechám i job_db ikdyž joby by mohly být vlastněny přímo třídou operation_result. Naznačuji tím, že v pozdějších vylepšení by se dalo
+			vymyslet něco s touto databází. Např. hromadné pročištění, nebo předání kontroly nad job_db přímo uživateli. Ale v první implementaci job_db vynechám a předám plnou moc nad joby přímo uživateli.
+			Tedy mfo movne unique_ptr přímo do konstruktoru operation_result.
+
+Definice tříd
+
+- třída optimalizer
+
+	Jde pouze o pojmenované požadavky, které někdy později sepíšu. Prozatím jen dodám, že by se třída měla chovat, tak jak bylo zmíněno a mít následující interface. Tato konkrétní třída je (má) defaultní
+	implementace.
+
+	Optimalizer bude mít optimalizační metodu pro každou operaci. Pro každou metodu bude přijímat vhodně zabalené argumenty odpovídajících metod v namespacu operate naskládané ve vektoru. Vracet bude vektor
+	jobů z nichž každý bude reprezentovat jedno vlákno.
 	
+	Abych zmenšil závislost třídy na zbytku knihovny, budu požadovat neparametrický konstruktor a raději i také move konstruktor a move přiřazení.
+
+
+- třída job
+
+	Před úplnou definicí třídy se ještě musím zamyslet nad implementací více vláknovosti. Abych si úlohu neztěžoval použiji třídu std::packaged_task. Třída job tedy, dostane v konstruktoru funkci, kterou
+	po spuštění provede v jiném vlákně, vytvoří packaged_task a při spuštění přesune packaged_task do nějakého vlákna(, které tím i spustí) a uloží future packaged_tasku. Také je nutno zmínit, že kvůli
+	tomu, že job může mít v sobě více operací, je nutné aby výsledek jobu byl vector plný future<bool>. Mohl bych to nechat zatím jen na future<bool> ale tím bych vyhazoval část informace, kterou jistě někdy
+	někdo použije. Umím si například představit hezčí implementaci operation_result, která nabízí bohatější interface a přímo spojí argumenty a typ operace s výsledkem. Takto nechám na uživateli aby si domyslel,
+	že první výsledek se váže s první sadou argumentů.
+
+	Co se týče abstrakce, tak job představuje jedno vlákno. Tedy je to něco jako moje vylepšení packaged_task. A to mimo jiné znamená že je to třída reprezentující zdroj, která se řídí RAII. 
+
+	- Jelikož bude více typů operací, dává smysl, aby pro každou existoval samostatný typ jobů. Tedy job bude typovaná třída. job bude typovaný (podobně jako packaged_task) dle:
+		. návratové hodnoty operace, kterou bude volat (metoda prováděná v packaged_tasku bude pak vracet vektor těchto typů)
+		. typ argumentu operace, kterou bude volat (metoda prováděná v packaged_tasku bude pak brát jako argument vektor těchto typů)
+		
+	/* 
+		Možná teď není jasné jakou fukci tedy job bude spouštět. Optimalizer původní vektor argumentů rozkouskuje, tedy se může stát, že jeden job bude volán pro více argumentů a tedy i vracet více návratových
+		hodnot. Tedy jobu bude očekávat, že mu volající předá funkci, která bere vektor typů argumentů a vrací vektor typu návratové hodnoty.
+	*/
+
+	- Musíme být schopní třídě předat (constructor)
+		. doplňující paramtery, které tento speciální typ jobu potřebuje
+		. funkci, kterou job bude provádět v jiném vlákně
+	- Zároveň, jak už jsem psal výše, job obsahuje třídu thread a future, z nichž obě nemají copy-ctor. Proto i třída job, jako vlastník zdrojů "vlákno" a "hodnota výsledku",
+	nebude mít copy-ctor, ale pouze move c-tor a přiřazení přesunem (constructor).
+
+	- job musí být schopný thread spustit (void job::run())
+	- navíc si job musí uchovávat future, jelikož po spuštění vlákna už je packaged_task ve vlákně a future je už nedosažitelná. Nebude však poskytovat future přímo, ale pouze přes operation_result. Je to kvůli
+	tomu, že z std::future může být hodnota vyzvednuta pouze jednou a navíc samotná future nemá copy-ctor.
+
+	- job musí být schopný ze sebe vyrobit odpovídající operation_result (operation_result job::to_result(std::unique_ptr<job>&&)) -> tady je nutné si uvědomit, že tím se programátor jakoby vzdává kontroly
+	nad jobem a předává ho operation_result
+		--> hází invalid_job_given pokud unique_ptr nevede na this.
+	- job navíc musí správně dealokovat všechny své zdroje. Tedy future pokud si jí nikdo nevzal a navíc i vlákno. Jelikož v destruktoru std::thread se čeká až vlákno doběhne, můžu s klidem nechat vygenerovat
+	defaultní destruktor, který automaticky zavolá destruktor na threadu a tak počká na dokončení práce.
+
+- třída operation_result
+	
+	Třída operation_result představuje výsledek operace a tím i vyjadřuje závislost na dané operaci. Je tedy intuitivní, že pokud uživatel chce vědět výsledek operace, pak si musí počkat až operace doběhne. 
+	Neintuitivní je bohužel fakt, že operation_result bude mít v (defualtním) destruktoru i destrukci unique_ptr<job>, který pak bude mít ve svém destruktoru zavolání destruktoru jobu, který má ve svém 
+	(defaultním) destruktoru i zavolání destruktoru threadu a ten čeká na ukončení vlákna. Jinými slovy třída operation_result, jakoby říkala, že nejdříve výsledek musíme znát a až pak ho můžeme zničit.
+	Jde o postup typický pro RAII, proto si myslím, že je takovéto zjednodušení zkousnutelné.
+
+	- operation_result musíme umět vytvořit z: (constructor)
+		. unique_ptr na job
+		. z future, který získáme z jobu (mohli bychom si ho vzít kdykoliv za pomocí odkazu, ale takto jasně stanovím kdy future vlastní job a kdy operation_result)
+	- kvůli unique_ptr, operation_result nebude mít copy-ctor, ale pouze move-ctor a move přiřazení.
+
+	- operation_result bude mít v sobě uchovanou future, ke které nepovolí přímý přístup, ale skrz metodu operation_result::get() operation_result počká na doběhnutí jobu a vrátí hodnotu future.
+		--> třída bude muset být typovaná dle návratové hodnoty
+
+	- defaultní destruktor postačí
+

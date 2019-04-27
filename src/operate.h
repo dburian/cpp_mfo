@@ -1,5 +1,5 @@
-#ifndef OPERATE_HEADER
-#define OPERATE_HEADER
+#ifndef MFO_OPERATE_HEADER
+#define MFO_OPERATE_HEADER
 #pragma once
 
 #include <filesystem>
@@ -22,34 +22,35 @@ namespace mfo {
     }
 }
 
+
 template<class UnaryPredicate>
 std::vector<std::filesystem::directory_entry> mfo::operate::find_if(const fs::path& in_dir, UnaryPredicate p) {
     std::filesystem::recursive_directory_iterator files{in_dir};
 
-    std::vector<std::filesystem::directory_entry> files_found;
+    std::vector<std::filesystem::directory_entry> filesFound;
 
     // fs::end(fs::recursive_directory_iterator) returns default-constructed fs::recursive_directory_iterator which serves as an end iterator.
-    std::find_if(files, std::filesystem::end(files), [p, &files_found](const std::filesystem::directory_entry& d) {
-        if(p(d)) files_found.push_back(d);
+    std::find_if(files, std::filesystem::end(files), [p, &filesFound](const std::filesystem::directory_entry& d) {
+        if(p(d)) filesFound.push_back(d);
         return false;
     }); 
 
-    return files_found;
+    return filesFound;
 }
 
 template<class UnaryPredicate>
 std::vector<std::filesystem::directory_entry> mfo::operate::find_if_local(const fs::path& in_dir, UnaryPredicate p) {
     std::filesystem::directory_iterator files{in_dir};
 
-    std::vector<std::filesystem::directory_entry> files_found;
+    std::vector<std::filesystem::directory_entry> filesFound;
 
-    std::find_if(files, std::filesystem::end(files), [p, &files_found](const std::filesystem::directory_entry& d) {
-        if(p(d)) files_found.push_back(d);
+    std::find_if(files, std::filesystem::end(files), [p, &filesFound](const std::filesystem::directory_entry& d) {
+        if(p(d)) filesFound.push_back(d);
         return false;
     });
 
-    return files_found;
+    return filesFound;
 }
 
 
-#endif // OPERATE_HEADER
+#endif // MFO_OPERATE_HEADER

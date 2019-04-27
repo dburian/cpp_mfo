@@ -29,12 +29,12 @@ void list_contents_recursive(const fs::path& dir) {
 
 bool check_file_contents(const fs::path& file, const std::string& against) {
     bool checks = false;
-    std::ifstream file_s (file);
+    std::ifstream fileS (file);
 
-    if (file_s.is_open()) {
+    if (fileS.is_open()) {
         std::string line;
 
-        std::istream& rest = std::getline(file_s, line);
+        std::istream& rest = std::getline(fileS, line);
         std::cout << line << std::endl;
 
         std::cout << "Original content: " << against << std::endl;
@@ -44,12 +44,12 @@ bool check_file_contents(const fs::path& file, const std::string& against) {
         else {
             std::cout << "Rest of the file (contents did not match):" << std::endl;
 
-            while(std::getline(file_s, line)) {
+            while(std::getline(fileS, line)) {
                 std::cout << "\t" << line << std::endl;
             }
         }
 
-        file_s.close();
+        fileS.close();
     }else {
         std::cout << "Test file could not be opened." << std::endl;
     }
@@ -59,46 +59,46 @@ bool check_file_contents(const fs::path& file, const std::string& against) {
 
 bool test_find() {
     auto cwd = fs::current_path();
-    fs::path searched_file = cwd/"doc/log.txt";
+    fs::path searchedFile = cwd/"doc/log.txt";
 
     std::cout << "TESTING FIND" << std::endl;
 
     list_contents_recursive(cwd);
 
-    std::cout << "Trying to find " << searched_file << std::endl;
+    std::cout << "Trying to find " << searchedFile << std::endl;
 
-    auto files_found = mfo::operate::find_if(cwd, [searched_file](const fs::directory_entry& d) {
-        return fs::equivalent(d.path(), searched_file);
+    auto filesFound = mfo::operate::find_if(cwd, [searchedFile](const fs::directory_entry& d) {
+        return fs::equivalent(d.path(), searchedFile);
     });
 
     std::cout << "Found :" << std::endl;
-    for(auto&& f: files_found) {
+    for(auto&& f: filesFound) {
         std::cout << '\t' << f.path() << std::endl;
     }
 
-    return files_found.size() == 1;
+    return filesFound.size() == 1;
 }
 
 bool test_find_local() {
     auto cwd = fs::current_path(); 
-    fs::path searched_file = cwd/".gitignore";
+    fs::path searchedFile = cwd/".gitignore";
 
     std::cout << "TESTING FIND_LOCAL" << std::endl;
 
     list_contents(cwd);
 
-    std::cout << "Trying to find " << searched_file << std::endl;
+    std::cout << "Trying to find " << searchedFile << std::endl;
 
-    auto files_found = mfo::operate::find_if_local(cwd, [searched_file] (const fs::directory_entry& d) {
-        return fs::equivalent(d.path(), searched_file);
+    auto filesFound = mfo::operate::find_if_local(cwd, [searchedFile] (const fs::directory_entry& d) {
+        return fs::equivalent(d.path(), searchedFile);
     });
 
     std::cout << "Found:" << std::endl;
-    for(auto& d:files_found) {
+    for(auto& d:filesFound) {
         std::cout << '\t' << d.path() << std::endl;
     }
 
-    return files_found.size() == 1;
+    return filesFound.size() == 1;
 }
 
 bool test_remove() {
@@ -116,9 +116,9 @@ bool test_remove() {
 
     list_contents(tmp);
 
-    auto dirs_found = mfo::operate::find_if_local(tmp, [tmp](const fs::directory_entry&d) { return fs::equivalent(d.path(), tmp/"dir_one"); });
+    auto dirsFound = mfo::operate::find_if_local(tmp, [tmp](const fs::directory_entry&d) { return fs::equivalent(d.path(), tmp/"dir_one"); });
 
-    return dirs_found.empty();
+    return dirsFound.empty();
 }
 
 bool test_move() {
@@ -127,26 +127,26 @@ bool test_move() {
 
     std::cout << "TESTING MOVE" << std::endl;
 
-    std::string test_file_name = "test.txt";
-    std::string test_file_moved_name = "test_moved.txt";
-    std::string test_file_content = "Content of test file.";
+    std::string testFileName = "test.txt";
+    std::string testFileMovedName = "test_moved.txt";
+    std::string testFileContent = "Content of test file.";
 
-    create_file(tmp/test_file_name, test_file_content);
+    create_file(tmp/testFileName, testFileContent);
 
-    std::cout << "Moving from " << tmp/test_file_name << " to " << tmp/test_file_moved_name << std::endl;
+    std::cout << "Moving from " << tmp/testFileName << " to " << tmp/testFileMovedName << std::endl;
     
     list_contents(tmp);
 
-    mfo::operate::move(tmp/test_file_name, tmp/test_file_moved_name);
+    mfo::operate::move(tmp/testFileName, tmp/testFileMovedName);
 
     list_contents(tmp);
 
-    success = check_file_contents(tmp/test_file_moved_name, test_file_content);
+    success = check_file_contents(tmp/testFileMovedName, testFileContent);
 
-    mfo::operate::remove(tmp/test_file_moved_name);
+    mfo::operate::remove(tmp/testFileMovedName);
     
-    success &= mfo::operate::find_if_local(tmp, [tmp, test_file_moved_name](const fs::directory_entry& d) {
-        return d.path() == tmp/test_file_moved_name;
+    success &= mfo::operate::find_if_local(tmp, [tmp, testFileMovedName](const fs::directory_entry& d) {
+        return d.path() == tmp/testFileMovedName;
     }).empty();
 
     return success;
@@ -159,24 +159,24 @@ bool test_copy() {
 
     std::cout << "TESTING COPY" << std::endl;
 
-    std::string test_file_name = "test.txt";
-    std::string test_file_copy_name = "test_copy.txt";
-    std::string test_file_content = "Content of test file.";
+    std::string testFileName = "test.txt";
+    std::string testFileCopyName = "test_copy.txt";
+    std::string testFileContent = "Content of test file.";
 
-    create_file(tmp/test_file_name, test_file_content);
+    create_file(tmp/testFileName, testFileContent);
 
-    std::cout << "Copying from " + test_file_name + " to " + test_file_copy_name << std::endl;
-
-    list_contents(tmp);
-
-    mfo::operate::copy(tmp/test_file_name, tmp/test_file_copy_name);
+    std::cout << "Copying from " + testFileName + " to " + testFileCopyName << std::endl;
 
     list_contents(tmp);
 
-    success = check_file_contents(tmp/test_file_copy_name, test_file_content);
+    mfo::operate::copy(tmp/testFileName, tmp/testFileCopyName);
 
-    mfo::operate::remove(tmp/test_file_name);
-    mfo::operate::remove(tmp/test_file_copy_name);
+    list_contents(tmp);
+
+    success = check_file_contents(tmp/testFileCopyName, testFileContent);
+
+    mfo::operate::remove(tmp/testFileName);
+    mfo::operate::remove(tmp/testFileCopyName);
 
     return success;
 }
@@ -185,27 +185,27 @@ int main()
 {
     try
     { 
-        bool find_local_t = test_find_local();
+        bool findLocalT = test_find_local();
         std::cout << std::endl;
         
-        bool find_t = test_find();
+        bool findT = test_find();
         std::cout << std::endl;
 
-        bool remove_t = test_remove();
+        bool removeT = test_remove();
         std::cout << std::endl;
 
-        bool move_t = test_move();
+        bool moveT = test_move();
         std::cout << std::endl;
 
-        bool copy_t = test_copy();
+        bool copyT = test_copy();
         std::cout << std::endl;
 
         std::cout << std::endl << std::endl;
-        std::cout << "Test remove succeeded: " << std::boolalpha << remove_t << std::noboolalpha << std::endl;
-        std::cout << "Test find_local succeeded: " << std::boolalpha << find_local_t << std::noboolalpha << std::endl;
-        std::cout << "Test find succeeded: " << std::boolalpha << find_t << std::noboolalpha << std::endl;
-        std::cout << "Test move succeeded: " << std::boolalpha << move_t << std::noboolalpha << std::endl;
-        std::cout << "Test copy succeeded: " << std::boolalpha << copy_t << std::noboolalpha << std::endl;
+        std::cout << "Test find_local succeeded: " << std::boolalpha << findLocalT << std::noboolalpha << std::endl;
+        std::cout << "Test find succeeded: " << std::boolalpha << findT << std::noboolalpha << std::endl;
+        std::cout << "Test remove succeeded: " << std::boolalpha << removeT << std::noboolalpha << std::endl;
+        std::cout << "Test moveT succeeded: " << std::boolalpha << moveT << std::noboolalpha << std::endl;
+        std::cout << "Test copy succeeded: " << std::boolalpha << copyT << std::noboolalpha << std::endl;
     }
     catch(const fs::filesystem_error& e)
     {
