@@ -15,16 +15,16 @@ namespace mfo {
     std::uintmax_t remove(const fs::path& target);
 
     template<class UnaryPredicate>
-    std::vector<fs::directory_entry> find_if(const fs::path& in_dir, UnaryPredicate p);
+    std::vector<fs::directory_entry> find_recursive(const fs::path& in_dir, UnaryPredicate p);
     template<class UnaryPredicate>
-    std::vector<fs::directory_entry> find_if_local(const fs::path& in_dir, UnaryPredicate p);
+    std::vector<fs::directory_entry> find(const fs::path& in_dir, UnaryPredicate p);
 
     }
 }
 
 
 template<class UnaryPredicate>
-std::vector<std::filesystem::directory_entry> mfo::operate::find_if(const fs::path& in_dir, UnaryPredicate p) {
+std::vector<std::filesystem::directory_entry> mfo::operate::find_recursive(const fs::path& in_dir, UnaryPredicate p) {
     std::filesystem::recursive_directory_iterator files{in_dir};
 
     std::vector<std::filesystem::directory_entry> filesFound;
@@ -39,7 +39,7 @@ std::vector<std::filesystem::directory_entry> mfo::operate::find_if(const fs::pa
 }
 
 template<class UnaryPredicate>
-std::vector<std::filesystem::directory_entry> mfo::operate::find_if_local(const fs::path& in_dir, UnaryPredicate p) {
+std::vector<std::filesystem::directory_entry> mfo::operate::find(const fs::path& in_dir, UnaryPredicate p) {
     std::filesystem::directory_iterator files{in_dir};
 
     std::vector<std::filesystem::directory_entry> filesFound;

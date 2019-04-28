@@ -57,7 +57,7 @@ bool check_file_contents(const fs::path& file, const std::string& against) {
     return checks;
 }
 
-bool test_find() {
+bool test_find_recursive() {
     auto cwd = fs::current_path();
     fs::path searchedFile = cwd/"doc/log.txt";
 
@@ -67,7 +67,7 @@ bool test_find() {
 
     std::cout << "Trying to find " << searchedFile << std::endl;
 
-    auto filesFound = mfo::operate::find_if(cwd, [searchedFile](const fs::directory_entry& d) {
+    auto filesFound = mfo::operate::find_recursive(cwd, [searchedFile](const fs::directory_entry& d) {
         return fs::equivalent(d.path(), searchedFile);
     });
 
@@ -79,7 +79,7 @@ bool test_find() {
     return filesFound.size() == 1;
 }
 
-bool test_find_local() {
+bool test_find() {
     auto cwd = fs::current_path(); 
     fs::path searchedFile = cwd/".gitignore";
 
@@ -89,7 +89,7 @@ bool test_find_local() {
 
     std::cout << "Trying to find " << searchedFile << std::endl;
 
-    auto filesFound = mfo::operate::find_if_local(cwd, [searchedFile] (const fs::directory_entry& d) {
+    auto filesFound = mfo::operate::find(cwd, [searchedFile] (const fs::directory_entry& d) {
         return fs::equivalent(d.path(), searchedFile);
     });
 
@@ -116,7 +116,7 @@ bool test_remove() {
 
     list_contents(tmp);
 
-    auto dirsFound = mfo::operate::find_if_local(tmp, [tmp](const fs::directory_entry&d) { return fs::equivalent(d.path(), tmp/"dir_one"); });
+    auto dirsFound = mfo::operate::find(tmp, [tmp](const fs::directory_entry&d) { return fs::equivalent(d.path(), tmp/"dir_one"); });
 
     return dirsFound.empty();
 }
@@ -145,7 +145,7 @@ bool test_move() {
 
     mfo::operate::remove(tmp/testFileMovedName);
     
-    success &= mfo::operate::find_if_local(tmp, [tmp, testFileMovedName](const fs::directory_entry& d) {
+    success &= mfo::operate::find(tmp, [tmp, testFileMovedName](const fs::directory_entry& d) {
         return d.path() == tmp/testFileMovedName;
     }).empty();
 
@@ -185,10 +185,10 @@ int main()
 {
     try
     { 
-        bool findLocalT = test_find_local();
+        bool findT = test_find();
         std::cout << std::endl;
         
-        bool findT = test_find();
+        bool findRecursiveT = test_find_recursive();
         std::cout << std::endl;
 
         bool removeT = test_remove();
@@ -201,8 +201,8 @@ int main()
         std::cout << std::endl;
 
         std::cout << std::endl << std::endl;
-        std::cout << "Test find_local succeeded: " << std::boolalpha << findLocalT << std::noboolalpha << std::endl;
-        std::cout << "Test find succeeded: " << std::boolalpha << findT << std::noboolalpha << std::endl;
+        std::cout << "Test find_local succeeded: " << std::boolalpha << findT << std::noboolalpha << std::endl;
+        std::cout << "Test find succeeded: " << std::boolalpha << findRecursiveT << std::noboolalpha << std::endl;
         std::cout << "Test remove succeeded: " << std::boolalpha << removeT << std::noboolalpha << std::endl;
         std::cout << "Test moveT succeeded: " << std::boolalpha << moveT << std::noboolalpha << std::endl;
         std::cout << "Test copy succeeded: " << std::boolalpha << copyT << std::noboolalpha << std::endl;

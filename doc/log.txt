@@ -237,7 +237,7 @@ Jelikož je namespace operate vlastně jen předefinovává funkce z namespacu s
 Jednu sadu pro oznamování chyb návratovým parametrem a druhou sadu funkcí, která chyby oznamuje vyhozením vyjímky. Vzhledem k tomu, že hlavní chyby budu detekovat ve validační vrstvě, nedojde k velkému zpomalení
 vyjímkami pokud se rozhodnu použít druhou sadu funkcí. Navíc se tím kód zpřehlední.
 
-Za zmínku stojí, že API std::filesystem neposkytuje žádnou možnost jak monitorovat progress operací, proto funkce v operate budou vracet pouze bool, jako příznak úspěchu operace.
+Za zmínku stojí, že API std::filesystem neposkytuje žádnou možnost jak monitorovat progress operací.
 
 
 Copy
@@ -246,7 +246,7 @@ API nabízí hned dvě funkce pro kopírování dat; copy a copy_file. První z 
 nechci honit za každou milisekundou(copy_file dělá jednu či dvě operace redundantně), budu volat copy.
 
 Navíc copy nabízí bližší specifikování chování funkce díky parametru std::filesystem::copy_options. Nabízí se tedy otázka, zda nenapsat metodu operate::copy podobně multifunkčně. Jelikož, ale ještě nevím zda
-rozšířená funkčnost std::filesystem::copy je potřebná nechám první implementaci funkce operate::copy jednoduchou a copy_options nebudu používat.
+rozšířená funkčnost std::filesystem::copy je potřebná nechám první implementaci funkce operate::copy jednoduchou a copy_options nebudu používat. Tedy zatím na tyto možnosti kašlu a nebudu je používat.
 
 
 Move
@@ -270,7 +270,7 @@ bude hledat pouze v hloubce 1, v daném adresáři.
 
 Konstruktor obou nabízí specifikaci chování iterátoru pomocí directory_options (pouze 2 možnosti jak dodefinovat chování iterátoru).
 
-Pro umožnění obecného vyhledávání jsem find přejmenoval na find_if, kterému je nutné předat predikát, který ověří nalezení (POZOR! Predikát musí být reentrantní). Navíc aby se například daly hledat
+Pro umožnění obecného vyhledávání metody find berou predikát, který ověří nalezení (POZOR! Predikát musí být reentrantní). Navíc aby se například daly hledat
 skupiny souborů se společnými vlastnostmi algoritmus se nezastaví při prvním nálezu. Také proto funkce vrací vector filesystem::directory_entry.
 
 
@@ -289,25 +289,100 @@ V tomto jmenném prostoru budou tedy pouze tyto funkce:
 
 	std::uintmax_t remove(const std::filesystem::path& target)
 
-	std::vector<std::filesystem::directory_entry> find_if(const std::filesystem::path& in_dir, UnaryPredicate p)
-	std::vector<std::filesystem::directory_entry> find_if_local(const std::filesystem::path& in_dir, UnaryPredicate p)
+	// UnaryPredicate bere const std::filesystem::directory_entry& a vrací bool
+	std::vector<std::filesystem::directory_entry> find_recursive(const std::filesystem::path& in_dir, UnaryPredicate p)
+	std::vector<std::filesystem::directory_entry> find(const std::filesystem::path& in_dir, UnaryPredicate p)
 
 
 ___________________________________________________________________________________________________________________________________________________________
-26.4. 2019 Named requirements: optimalizer, třídy job(, job_db) a operation_result. 
+26.4. 2019 Named requirements: optimalizer 
 
 API optimalizeru
 
-	Už jsem si ujasnil jakou úlohu bude optimalizér hrát v celkovém návrhu knihovny. Bude rozdělovat práci mezi vlákna. Nabízí se tedy, aby metody optimalizéru vracely nějaké škatulky, které budou mít jadnoznačně
-	definovanou práci. Očekává se, že v pozdějších implementacích bude někdo ke škatulkám přistupovat a zjišťovat např. jejich stav. Proto je obalím speciální třídou job. job, kromě jiného, bude obsahovat typ 
-	operace, operandy operace a také "future" výsledku. Aby se mi tyto joby jen tak někde nepoflakovaly, vytvořím na ně seznam job_db, kde je budu uchovávat. Jak k job_db tak k job, nemám pevně definovaný
-	use-case a tedy	ani pevné požadavky na jejich funkčnost. Zavádím je spíš proto, že je víceméně zřejmé, že budou potřeba. Už jen pro jednodušší zacházení s joby - alternativní přístup je, aby joby vlastnila
-	mfo či optimalizer.	Ani jedna z možností nenabízí pozitiva, spíše negativa (třídy by najednou prováděli o jednu úlohu navíc a tak by abstrakce nebyly tak jasné a bylo by těžší se v kódu orientovat).
+	Už jsem si ujasnil jakou úlohu bude optimalizér hrát v celkovém návrhu knihovny. Bude rozdělovat práci mezi vlákna. Každá operace si žádá nějaký počet argumentů, o této množině můžu zamýšlet jako o jedné
+	jednotce práce, neboť pokud korespondující operace dostane tuto množinu argumentů vykoná definovanou operaci v namespacu operate. Tedy například operate::copy potřebuje dva argumenty a tedy pár argumentů,
+	konkrétně pár cest, pak reprezentuje jednu jednotku práce, tedy vykonání jedné kopie. Pak v těchto termínech metody optimalizeru dostanou množinu jednotek práce a mají vracet množinu množin jednotek práce.
+	Prakticky to znamená že metody optimalizeru budou brát vektor jednotek práce (typ jednotky práce záleží na operaci) a bude vrace vektor vektorů jednotek množin práce.
 
-	Teď stačí ještě rozmyslet s jakým parametrem se budou optimalizační metody volat. Parametry budou muset nést argumenty operací a počet vláken. Nabízí se možnost parametry, konkrétně argumenty operací,
-	obalit do nějakého objektu, ale myslím, že to není potřeba. Tedy například copy bude brát vector párů cest, tj. const std::vector<std::pair<std::filesystem::path, std::filesystem::path>>&.
+	Jelikož už bylo zmíněno, že optimalizer bude možné dodat i externě, měl bych detailněji specifikovat co od této třídy čekám. Avšak čas mě tlačí a tak to sepíšu až jindy.
 
-	Než najisto rozepíšu API optimalizeru, chci se ujistit, že takto navržené metody budou fungovat v celo-knihovním měřítku. Zvláště pak princip jobů.
+	Ještě zde vypíšu typy jednotek práce pro všechny operace.
+
+		Operace				Seznam typů argumentů								Jméno obalovací strkutury
+		. copy				std::filesystem::path, std::filesystem::path		copy_arg
+		. move				std::filesystem::path, std::filesystem::path		move_arg
+		. remove			std::filesystem::path								remove_arg
+		. find				std::filesystem::path, UnaryPredicate				find_arg<>
+		. find_recursive	std::filesystem::path, UnaryPredicate				find_recursive_arg<>
+
+	Všechny metody jsou dimenzovány tak aby sloužili jako transformace původních argumentů. Tedy vektory v argumentech se vykrádají a měli by po zavolání optimalizačních metod zpravidla zůstávat prázdné.
+
+	Prozatím jsem všechny metody implementoval primitivně. Metody ignorují počet vláken a vše přidělí vláknu prvnímu.
+
+
+___________________________________________________________________________________________________________________________________________________________
+28.4. 2019	Namespace validate
+
+	Jmenný prostor validate má za úkol zvalidovat operace. Validaci operace dělá i jmenný prostor filesystem a tak není potřeba nacházet všechny chybné stavy. Validaci jsem předsunul proto, aby se již třída
+	optimalizer mohla spolehnout na to, že jsou operace validní. Je tedy snaha odchytit co nejvíce zřejmých chybných stavů za co nejkratší čas. Velmi dobrý návod poskytuje popis operací ve jmenném prostoru
+	std::filesystem.
+
+	Otázka je, jak nakládat s chybovými stavy. Pokud validate metody chybový stav neodhalí, metody operate vyhodí std::filesystem::filesystem_error. Na jednu stranu tedy nechci vyhazovat vyjímky, jelikož
+	nejde o vyjímečný stav - validate počítá s tím, že občas nějaká operace bude zadána chybně. Vyjímečný stav je to až tehdy, kdy metoda operate má splnit operaci, kterou díky chybnému zadání není jak splnit.
+	Na druhou stranu nechci aby se uživatel musel trápit s dvěma způsoby hlášení chybných stavů. Proto jsem se rozhodl, že knihovna bude hlásit chybné stavy vyjímkami. Důvod je prostý. Knihovna má za úkol provést
+	nějakou operaci, ale chybné argumenty jí to neumožní, jde tedy o vyjímečný stav. Bude to tedy fungovat tak, že metody validate budou vracet nějak vhodně zabalený chybový stav. Třída mfo pak bude imitovat
+	vyjímky, které by vznikly, kdyby se chybový stav neobjevil a zabalí je stejným způsobem jako výsledky operací. Tedy cílím na to, aby pro jedny chybové argumenty dostala k uživateli future, která bude mít
+	v sobě vyjímku, kterou by metody operate stejně vyhodili.
+
+	Zbývá navrhnout nějaký způsob jak zabalit chybové stavy. Vzhledem k tomu, že chybových operací je hodně, rozhodl jsem se, že třídy operate budou vracet rovnou std::filesystem::filesystem_error. Ten obsahuje
+	pouze cesty k souborům, u kterých chyba vznikla a errorovou zprávu.
+
+	Chybových situací implementuji zprvu méně, ale dají se snadno rozšířit.
+
+	Chybové stavy pro copy:
+
+		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		. 'from' neexistuje 							'from'								-										'from' does not exist
+		. 'from' a 'to' jsou ekvivalentní				'from'								'to'									'from' and 'to' are equivalent
+		. 'from' nebo 'to' nejsou normální soubory,		'from'/'to'							-										'from'/'to' is not regular file, directory or symlink
+			složky nebo symlinky
+		. 'from' je normální soubor, ale 'to' není		'from'								'to'									'from' is a regular file, but 'to' is not
+
+	Chybové stavy pro move:
+
+		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		. 'from' není složka, ale 'to' je složka		'from'								'to'									'from' is a non-directory, but 'to' is a directory
+		. 'to' je ve složce, která neexistuje			'to'								-										'to' is in a non-existent directory
+		. 'from' je složka, ale 'to' není složka		'from'								'to'									'from' is a directory, but 'to' is not
+		. 'to' končí na "." nebo ".."					'to'								-										'to' ends with "." or ".."
+		. 'to' končí na `oddělovač složek` a vede na	'to'								-										'to' ends with directory seperator and names a non-existent directory
+			neexistující složku
+		. 'from' je nadsložka 'to'						'from'								'to'									'from' is a directory which is ancestor of 'to'
+
+	Chybové stavy pro remove:
+
+		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		. 'target' neexistuje							'target'																	'tartget' does not exist
+	
+	Chybové stavy pro find:
+
+		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		
+	Chybové stavy pro find_recursive:
+
+		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		
+___________________________________________________________________________________________________________________________________________________________
+27.4. 2019	Třída mfo
+
+	Nyní je vlas
+
+		
+
+
+
+
+
 
 
 Detailnější použití knihovny
