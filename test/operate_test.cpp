@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "../include/arg_types.h"
 #include "../src/operate.h"
 
 namespace fs = std::filesystem;
@@ -67,9 +68,9 @@ bool test_find_recursive() {
 
     std::cout << "Trying to find " << searchedFile << std::endl;
 
-    auto filesFound = mfo::operate::find_recursive(cwd, [searchedFile](const fs::directory_entry& d) {
+    auto filesFound = mfo::operate::find_recursive(mfo::find_recursive_arg(cwd, [searchedFile](const fs::directory_entry& d) {
         return fs::equivalent(d.path(), searchedFile);
-    });
+    }));
 
     std::cout << "Found :" << std::endl;
     for(auto&& f: filesFound) {
@@ -89,9 +90,9 @@ bool test_find() {
 
     std::cout << "Trying to find " << searchedFile << std::endl;
 
-    auto filesFound = mfo::operate::find(cwd, [searchedFile] (const fs::directory_entry& d) {
+    auto filesFound = mfo::operate::find(mfo::find_arg(cwd, [searchedFile] (const fs::directory_entry& d) {
         return fs::equivalent(d.path(), searchedFile);
-    });
+    }));
 
     std::cout << "Found:" << std::endl;
     for(auto& d:filesFound) {
@@ -112,11 +113,11 @@ bool test_remove() {
 
     std::cout << "Removing dir_one." << std::endl;
 
-    mfo::operate::remove(tmp/"dir_one");
+    mfo::operate::remove(mfo::remove_arg(tmp/"dir_one"));
 
     list_contents(tmp);
 
-    auto dirsFound = mfo::operate::find(tmp, [tmp](const fs::directory_entry&d) { return fs::equivalent(d.path(), tmp/"dir_one"); });
+    auto dirsFound = mfo::operate::find(mfo::find_arg(tmp, [tmp](const fs::directory_entry&d) { return fs::equivalent(d.path(), tmp/"dir_one"); }));
 
     return dirsFound.empty();
 }
@@ -137,17 +138,17 @@ bool test_move() {
     
     list_contents(tmp);
 
-    mfo::operate::move(tmp/testFileName, tmp/testFileMovedName);
+    mfo::operate::move(mfo::move_arg(tmp/testFileName, tmp/testFileMovedName));
 
     list_contents(tmp);
 
     success = check_file_contents(tmp/testFileMovedName, testFileContent);
 
-    mfo::operate::remove(tmp/testFileMovedName);
+    mfo::operate::remove(mfo::remove_arg(tmp/testFileMovedName));
     
-    success &= mfo::operate::find(tmp, [tmp, testFileMovedName](const fs::directory_entry& d) {
+    success &= mfo::operate::find(mfo::find_arg(tmp, [tmp, testFileMovedName](const fs::directory_entry& d) {
         return d.path() == tmp/testFileMovedName;
-    }).empty();
+    })).empty();
 
     return success;
 }
@@ -169,14 +170,14 @@ bool test_copy() {
 
     list_contents(tmp);
 
-    mfo::operate::copy(tmp/testFileName, tmp/testFileCopyName);
+    mfo::operate::copy(mfo::copy_arg(tmp/testFileName, tmp/testFileCopyName));
 
     list_contents(tmp);
 
     success = check_file_contents(tmp/testFileCopyName, testFileContent);
 
-    mfo::operate::remove(tmp/testFileName);
-    mfo::operate::remove(tmp/testFileCopyName);
+    mfo::operate::remove(mfo::remove_arg(tmp/testFileName));
+    mfo::operate::remove(mfo::remove_arg(tmp/testFileCopyName));
 
     return success;
 }

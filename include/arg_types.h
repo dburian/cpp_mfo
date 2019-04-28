@@ -29,12 +29,29 @@ namespace mfo {
         find_arg(const fs::path& init_in, UnaryPredicate&& init_p) : in{init_in}, p{std::move(init_p)} {}
         find_arg(fs::path&& init_in, UnaryPredicate&& init_p) : in{std::move(init_in)}, p{std::move(init_p)} {}
 
-        fs::path in;
-        UnaryPredicate p;
+        fs::path in_dir;
+        UnaryPredicate predicate;
     };
 
     template<class UnaryPredicate>
-    using find_recursive_arg = find_arg<UnaryPredicate>;
+    find_arg(const fs::path& init_in, UnaryPredicate&& init_p) -> find_arg<UnaryPredicate>;
+    template<class UnaryPredicate>
+    find_arg(fs::path&& init_in, UnaryPredicate&& init_p) -> find_arg<UnaryPredicate>;
+
+    //Not using aliases due to CTAD not working for aliases
+    template<class UnaryPredicate>
+    struct find_recursive_arg {
+        find_recursive_arg(const fs::path& init_in, UnaryPredicate&& init_p) : in{init_in}, p{std::move(init_p)} {}
+        find_recursive_arg(fs::path&& init_in, UnaryPredicate&& init_p) : in{std::move(init_in)}, p{std::move(init_p)} {}
+
+        fs::path in_dir;
+        UnaryPredicate predicate;
+    };
+
+    template<class UnaryPredicate>
+    find_recursive_arg(const fs::path& init_in, UnaryPredicate&& init_p) -> find_recursive_arg<UnaryPredicate>;
+    template<class UnaryPredicate>
+    find_recursive_arg(fs::path&& init_in, UnaryPredicate&& init_p) -> find_recursive_arg<UnaryPredicate>;
 }
 
 
