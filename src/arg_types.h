@@ -17,7 +17,12 @@ namespace mfo {
 
     using move_arg = copy_arg;
 
-    using remove_arg = fs::path;
+    struct remove_arg {
+        remove_arg(const fs::path& init_target) : target{init_target} {}
+        remove_arg(fs::path&& init_target) : target{std::move(init_target)} {}
+
+        fs::path target;
+    };
 
     template<class UnaryPredicate>
     struct find_arg {

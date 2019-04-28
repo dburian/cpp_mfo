@@ -335,42 +335,51 @@ ________________________________________________________________________________
 	v sobě vyjímku, kterou by metody operate stejně vyhodili.
 
 	Zbývá navrhnout nějaký způsob jak zabalit chybové stavy. Vzhledem k tomu, že chybových operací je hodně, rozhodl jsem se, že třídy operate budou vracet rovnou std::filesystem::filesystem_error. Ten obsahuje
-	pouze cesty k souborům, u kterých chyba vznikla a errorovou zprávu.
+	pouze cesty k souborům, u kterých chyba vznikla a errorovou zprávu. Navíc ještě obsahuje error_code. Nevím přesně jaké errorové kódy jsou v opravdových vyjímkách, tak je prozatím nainicializuju na generickou
+	hodnotu.
 
 	Chybových situací implementuji zprvu méně, ale dají se snadno rozšířit.
 
 	Chybové stavy pro copy:
 
 		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
-		. 'from' neexistuje 							'from'								-										'from' does not exist
+		. 'from' nebo 'to' jsou prázdné					'from'								'to'									'from'/'to' is empty
+		. 'from' neexistuje 							'from'								'to'									'from' does not exist
 		. 'from' a 'to' jsou ekvivalentní				'from'								'to'									'from' and 'to' are equivalent
-		. 'from' nebo 'to' nejsou normální soubory,		'from'/'to'							-										'from'/'to' is not regular file, directory or symlink
+		. 'from' nebo 'to' nejsou normální soubory,		'from'								'to'									'from'/'to' is not regular file, directory or symlink
 			složky nebo symlinky
-		. 'from' je normální soubor, ale 'to' není		'from'								'to'									'from' is a regular file, but 'to' is not
 
 	Chybové stavy pro move:
 
 		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		. 'from' nebo 'to' jsou prázdné					'from'								'to'									'from'/'to' is empty
 		. 'from' není složka, ale 'to' je složka		'from'								'to'									'from' is a non-directory, but 'to' is a directory
-		. 'to' je ve složce, která neexistuje			'to'								-										'to' is in a non-existent directory
+		. 'to' je ve složce, která neexistuje			'from'								'to'									'to' is in a non-existent directory
 		. 'from' je složka, ale 'to' není složka		'from'								'to'									'from' is a directory, but 'to' is not
-		. 'to' končí na "." nebo ".."					'to'								-										'to' ends with "." or ".."
-		. 'to' končí na `oddělovač složek` a vede na	'to'								-										'to' ends with directory seperator and names a non-existent directory
+		. 'to' končí na "." nebo ".."					'from'								'to'									'to' ends with "." or ".."
+		. 'to' končí na `oddělovač složek` a vede na	'from'								'to'									'to' ends with directory seperator and names a non-existent directory
 			neexistující složku
 		. 'from' je nadsložka 'to'						'from'								'to'									'from' is a directory which is ancestor of 'to'
+		. 'from' končí na `oddělovač složek`			'from'								'to'									'from' ends with directory separator
+		. 'from' neexistuje								'from'								'to'									'from' does not exist
 
 	Chybové stavy pro remove:
 
 		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		. 'target' je prázdný							'target'																	'target' is empty
 		. 'target' neexistuje							'target'																	'tartget' does not exist
 	
 	Chybové stavy pro find:
 
 		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		. 'in_dir' je prázdný							'in_dir'																	'in_dir' is empty
+		. 'in_dir' neexistuje							'in_dir'																	'in_dir' does not exist
 		
 	Chybové stavy pro find_recursive:
 
 		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
+		. 'in_dir' je prázdný							'in_dir'																	'in_dir' is empty
+		. 'in_dir' neexistuje							'in_dir'																	'in_dir' does not exist
 		
 ___________________________________________________________________________________________________________________________________________________________
 27.4. 2019	Třída mfo
