@@ -380,11 +380,75 @@ ________________________________________________________________________________
 		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
 		. 'in_dir' je prázdný							'in_dir'																	'in_dir' is empty
 		. 'in_dir' neexistuje							'in_dir'																	'in_dir' does not exist
-		
-___________________________________________________________________________________________________________________________________________________________
-27.4. 2019	Třída mfo
 
-	Nyní je vlas
+
+	//TODO: Napsat testy pro jmenný prostor validate
+
+___________________________________________________________________________________________________________________________________________________________
+28.4. 2019	Třída mfo
+
+	Nyní je vlastně jasné jak zbytek knihovny bude fungovat a zbývá jen dodefinovat třídu mfo, která vše spojí dohromady.
+
+	- Abstrakce
+
+		Jak už bylo asi předesláno, třída mfo bude sloužit jako entrypoint a API celé knihovny. Uživatel si naincluduje header se třídou mfo a bude moci začít knihovnu používat. Zároveň třída mfo představuje
+		jisté nastavení celé knihovny. Moje představa je, že v budoucnu bude mít třída vnitřní stav a například si bude uchovávat copy_options a různé jiné nastavení operací. Třída mfo tak kompletuje balíček
+		validátoru, optimalizéru a prováděče operací.
+	
+	- API
+
+		Již jsem uvedl co má mfo všechno umět. Teď abych si ujasnil co vše je potřeba při jednotlivých operacích, rozepíšu chtěné chování třídy a tím určím i její interface.
+
+		- Společné pro všechny operace
+
+	(1)		. Pro každou operaci platí, že bych chtěl aby argumenty předávané mfo i návratové hodnoty metod mfo, byly v nějakém lidském tvaru.
+	(2)		. Pro každou operaci, kterou je třeba zvalidovat platí, že pro argumenty, které nejsou validní je potřeba vygenerovat to co se uživateli bude jevit jako výsledek nezdařené operace.
+	(3)		. Pro každou multivláknovou operaci platí, že po obdržení rozložené práce od optimalizéru, je potřeba vygenerovat funkce, které v samotném vlákně poběží.
+	(4)		. Pro každou multivláknovou operaci platí, že po rozběhnutí vláken se přislíbení hodnoty vrátí, ale vlákno samotné (tedy třída std::thread) musí žít dál. Tedy je potřeba si jí držet v nějakém
+				objektu s delší životností, než lokální proměnné metody. S tím souvisí i to, že je potřeba, aby vlákna někdo zničil (popřípadě znovu využil, ale někdy se zničit musí).
+
+	(1) Vcelku lidský formát vstupních argumentů mi připadá již představené typy copy_arg, move_arg, ..atd. Tedy do includu budeme muset zahrnout i header arg_types.h. Horší je to s návratovými hodnotami.
+	Dejme tomu, že uživatel předá jako vstupní argument const referenci a vektor copy_arg. Bude čekat, že za každý copy_arg se mu vrátí výsledek operace, v případě kopírování tedy bool. Rozvedu později.
+
+	Pro další body je kritické abych si promyslel jak budu další vlákna vytvářet a jak z nich získám hodnoty. Rozhodl jsem se využít standartní knihovny, konkrétně třídy packaged_task. Ta umožňuje zabalit
+	funkci do balíčku, z něhož se snadno získá výsledek (ikdyž funkce běží v jiném vlákně), a který lze snadno předat vláknu (std::thread), který funkci provede. packaged_task se je třída typovaná dle
+	funkce, kterou bude spouštět. Můžu si tedy snadno nadefinovat netypovaný typ copy_task, který bude jen převlečený packaged_task. packaged_task vrací hodnotu skrz future, která je typovaná dle návratové
+	hodnoty funkce. Hodnota se ve future objeví potom co se ve funkci v packaged_tasku provede return __hodnota__.
+
+	Ať už budou vytvořené funkce z bodu (3) jakékoliv, potřebovali bychom aby nám dali vědět, jak dopadly spuštěné operace. Operace se budou spouštět s vektorem argumentů, tedy výsledek operace bude taky
+	nějaký seznam návratových hodnot jednotlivých operací. Zde je ale problém. Pokud by operace vraceli vektor typů návratové hodnoty, pak packaged_task bude "vracet" future<vector<..>>, tedy jednotlivé
+	operace budou jakoby trvat dlouho a pak doběhnou ve stejný čas. Vzniká také problém, jak namapovat výsledek operace na operaci samotnou. Například když spustíme task s vektorem argumentů, jak víme že první
+	výsledek se týká prvního argumentu (dalo by se vyřešit dohodnutím konvence).
+
+	O problém mapování by se ještě nějak dalo postarat konvencí (neboť budu psát generátor funkcí, vím jak se vygenerované funkce budou chovat a tedy bych se mohl spolehnout, že vrací výsledky v pořadí). Hlavní
+	problém tedy zůstává, jak zajistit aby výsledky sekvenciálně prováděných operací v jednom vlákně byly vidět v sekvenciálním pořadí i z druhého vlákna. Jeden možný způsob by byl nadefinování svého vlastního
+	"packaged_tasku", který by bral vektor metod a bylo by možné z něj dostat vektor future<..>. Druhý možný způsob, je nadefinování, nějaké společné struktury, kdy by bylo možné logovat výsledky jednotlivých
+	operací. packaged_taskům by se pak akorát musel předat pointer na tuto strukturu aby tam mohla v reálném čase výsledky zapsat. Třetí možný způsob je vykašlat se na tento nedostatek a zabalit návratovou
+	hodnotu tak, abych mohl v příštích verzích jednu z předchozích možností naimplementovat, beze změny API knihovny.
+
+	Zvolím si třetí z možností. Vytvořím třídu operation_result, která v sobě bude mít kopii argumentů operace, jejíž výsledek bude reprezentovat, kopii shared_future, která bude vracet vektor návratových
+	hodnot operací a index, který určí jaký z výsledků ve vektoru je operace, kterou operation_result reprezentuje. Metody mfo pak vždy vezmou vektor argumentů, který je určený jednomu vláknu, pro každý z
+	těchto argumentů vytvoří operation_result, vytvoří packaged_task a na její future zavolají share(), čímž dostanou shared_future, kterou můžou rozkopírovat do všech operation_result. Tuto packaged_task pak
+	přesunou do nového vlákna a tím ji spustí.
+
+	(1) je tedy vyřešená
+
+	(2) Chybové situace se už snadno vyřeší přidáním zvláštního konstruktoru operation_result, který bude brát vyjímku. Až si uživatel zažádá o výsledek, operation_result vyjímku vyhodí.
+
+	(3) Na toto stačí napsat funkci, která nejprve inicializuje vektor návratových hodnot operace a postupně provádí operaci pro předané argumenty a ukládá si její výsledek. Zde bude třeba trochu upravit
+	interface metod v jmenném prostoru operate.
+
+	(4) Toto už je větší oříšek. Jelikož se jedná o složitou úlohu, vyhradil bych si na ní novou třídu (thread_pool). Ta by měla za úkol, udržovat si seznam naalokovaných vláken, na přání poskytnout nové a starat se o
+	dealokaci nepoužívaných.
+
+
+
+
+
+		
+
+
+		
 
 		
 
