@@ -385,7 +385,7 @@ ________________________________________________________________________________
 	//TODO: Napsat testy pro jmenný prostor validate
 
 ___________________________________________________________________________________________________________________________________________________________
-28.4. 2019	Třída mfo
+28.4. 2019	Úvod do třídy mfo
 
 	Nyní je vlastně jasné jak zbytek knihovny bude fungovat a zbývá jen dodefinovat třídu mfo, která vše spojí dohromady.
 
@@ -435,126 +435,68 @@ ________________________________________________________________________________
 
 	(2) Chybové situace se už snadno vyřeší přidáním zvláštního konstruktoru operation_result, který bude brát vyjímku. Až si uživatel zažádá o výsledek, operation_result vyjímku vyhodí.
 
-	(3) Na toto stačí napsat funkci, která nejprve inicializuje vektor návratových hodnot operace a postupně provádí operaci pro předané argumenty a ukládá si její výsledek. Zde bude třeba trochu upravit
-	interface metod v jmenném prostoru operate.
+	(3) Na toto stačí napsat funkci, která nejprve inicializuje vektor návratových hodnot operace a postupně provádí operaci pro předané argumenty a ukládá si její výsledek (-- Pozor na odchytávání vyjímek).
+	Zde bude třeba trochu upravit interface metod v jmenném prostoru operate.
 
-	(4) Toto už je větší oříšek. Jelikož se jedná o složitou úlohu, vyhradil bych si na ní novou třídu (thread_pool). Ta by měla za úkol, udržovat si seznam naalokovaných vláken, na přání poskytnout nové a starat se o
-	dealokaci nepoužívaných.
+	(4) Toto už je větší oříšek. Jelikož se jedná o složitou úlohu, vyhradil bych si na ní novou třídu (thread_pool). Ta by měla za úkol, udržovat si seznam naalokovaných vláken, na přání poskytnout nové 
+	a starat se o dealokaci nepoužívaných.
 
+___________________________________________________________________________________________________________________________________________________________
+29.4. 2019	Třída operation_result
 
+	- Abstrakce
 
-
-
-		
-
-
-		
-
-		
-
-
-
-
-
-
-
-Detailnější použití knihovny
-
-Čili představuji si to zhruba takto:
-	- mfo po validaci zavolá třídu 'O', která splňuje pojmenované požadavky 'optimalizer'
-	- třída 'O' rozdělí práci mezi více jobů, které vrátí ve vektoru (lokální proměnná se bude vracet pomocí move-ctoru vektoru)
-	- třída mfo pak spustí tyto joby skrz job_db, získá jejich futures a ty vrátí volajícímu (uživateli)
-	- uživatel pak někdy zavolá na této future .get() a tedy vlákna vždy musí doběhnout
-
-	--> Vzniká tu problém úklidu: kdo je zodpovědný za destrukci jobu (který se už postará o destrukci svých vlastních objektů)?
-
- - Implementace vláknovitosti a problém úklidu
-
-Ještě se vrátím k problému úklidu: kdo je zodpovědný za destrukci jobu (který se už postará o destrukci svých vlastních objektů)? Většinou objekty úklízí ten, kdo je vytvořil. V tomto případě je vytváří třída 'O'
-, ale ta vlastně jen velký job rozděluje mezi více menších jobů. Tedy ten, kdo vytvoří velký job, by měl být i zodpovědný za jeho destrukci a tím i za destrukci jeho částí, tedy menších jobů. Velký job ale
-vytváří uživatel, po kterém nemůžu chtít ať se stará o životnost vnitřních objektů knihovny. Jelikož počítám s job_db jako opravdu hloupou databází (slouží pouze jako odkladní plocha), nemůžu ani po ní 
-chtít, aby věděla kdy, jaký job skončil a tedy aby i věděla kdy ho zničit. Narážím tu na problém, kdy životnost vytvořeného objektu není ohraničená. Vím jen, že objekt jobu bude neužitečný potom co si 
-uživatel vyzvedne jeho výsledek. Tedy kdybychom uživateli vraceli výsledek zabalený v nějaké třídě (operation_result), jejíž destruktor zajistí i zničení původního jobu, dávalo by to jistou logiku. Navíc uživatel jasně bude 
-vědět, který future se váže ke konkrétní operaci.
-
-Tedy pro upřesnění ještě jednou detailněji popíšu, jak se knihovna bude chovat (wrapper pro jednoduchost vynechán):
-	- uživatel zavolá mfo s konkrétním vectorem argumentů pro danou operaci (např. pro kopírování vektor párů cest).
-		- mfo zvaliduje operace (ošetření chybných stavů se dořeší pak)
-			- namespace validate
-		- mfo poté předá referenci na argumenty optimalizéru 
-			- optimalizér vrací vektor jobů (vracení bude rychlé díky výše zmíněnému mechanizmu - move-ctor vektoru)
-		//- mfo joby movne do job_db
-		- mfo joby rozeběhne
-		- mfo z jobů dostane jejich odpovídající operation_result, ktera v sobě budou mít unique_ptr na svůj job a tedy i na argumenty, se kterými byl job spuštěn
-		- mfo vrátí vektor operation_result
-	- uživatel si bude moci prohlížet joby skrz pointry v operation_result joby a na kterýkoliv si bude moci počkat
-	- pokud uživatel operation_result zničí, znamená to, že uživatel musí počkat až operace doběhne
-		--> Není to ideální, ale prozatím postačí. Naschvál v implementaci nechám i job_db ikdyž joby by mohly být vlastněny přímo třídou operation_result. Naznačuji tím, že v pozdějších vylepšení by se dalo
-			vymyslet něco s touto databází. Např. hromadné pročištění, nebo předání kontroly nad job_db přímo uživateli. Ale v první implementaci job_db vynechám a předám plnou moc nad joby přímo uživateli.
-			Tedy mfo movne unique_ptr přímo do konstruktoru operation_result.
-
-Definice tříd
-
-- třída optimalizer
-
-	Jde pouze o pojmenované požadavky, které někdy později sepíšu. Prozatím jen dodám, že by se třída měla chovat, tak jak bylo zmíněno a mít následující interface. Tato konkrétní třída je (má) defaultní
-	implementace.
-
-	Optimalizer bude mít optimalizační metodu pro každou operaci. Pro každou metodu bude přijímat vhodně zabalené argumenty odpovídajících metod v namespacu operate naskládané ve vektoru. Vracet bude vektor
-	jobů z nichž každý bude reprezentovat jedno vlákno.
+		Třída reprezentuje výsledek jakékoliv operace třídy mfo. Jelikož bude více typů návratových hodnot a také více typů argumentů, bude tato třída muset být typovaná. Pomocí aliasů se však vyhneme
+		zdlouhavým deklaracím/definicím.
 	
-	Abych zmenšil závislost třídy na zbytku knihovny, budu požadovat neparametrický konstruktor a raději i také move konstruktor a move přiřazení.
+	- Interface
 
-
-- třída job
-
-	Před úplnou definicí třídy se ještě musím zamyslet nad implementací více vláknovosti. Abych si úlohu neztěžoval použiji třídu std::packaged_task. Třída job tedy, dostane v konstruktoru funkci, kterou
-	po spuštění provede v jiném vlákně, vytvoří packaged_task a při spuštění přesune packaged_task do nějakého vlákna(, které tím i spustí) a uloží future packaged_tasku. Také je nutno zmínit, že kvůli
-	tomu, že job může mít v sobě více operací, je nutné aby výsledek jobu byl vector plný future<bool>. Mohl bych to nechat zatím jen na future<bool> ale tím bych vyhazoval část informace, kterou jistě někdy
-	někdo použije. Umím si například představit hezčí implementaci operation_result, která nabízí bohatější interface a přímo spojí argumenty a typ operace s výsledkem. Takto nechám na uživateli aby si domyslel,
-	že první výsledek se váže s první sadou argumentů.
-
-	Co se týče abstrakce, tak job představuje jedno vlákno. Tedy je to něco jako moje vylepšení packaged_task. A to mimo jiné znamená že je to třída reprezentující zdroj, která se řídí RAII. 
-
-	- Jelikož bude více typů operací, dává smysl, aby pro každou existoval samostatný typ jobů. Tedy job bude typovaná třída. job bude typovaný (podobně jako packaged_task) dle:
-		. návratové hodnoty operace, kterou bude volat (metoda prováděná v packaged_tasku bude pak vracet vektor těchto typů)
-		. typ argumentu operace, kterou bude volat (metoda prováděná v packaged_tasku bude pak brát jako argument vektor těchto typů)
+		. Třídu operation_result je potřeba zkostruovat dvěma různými způsoby: (constructor)
+			(1) Předáním shared_future, indexu a argumentů 			-- klasická konstrukce, shared_future přichází od packaged_tasku, předání správného indexu a argumentů zajišťuje kód mfo 
+			(2) Předáním vyjímky a argumentů						-- konstrukce výsledku pro chybný stav ošetřený ve jmenném prostoru validate
 		
-	/* 
-		Možná teď není jasné jakou fukci tedy job bude spouštět. Optimalizer původní vektor argumentů rozkouskuje, tedy se může stát, že jeden job bude volán pro více argumentů a tedy i vracet více návratových
-		hodnot. Tedy jobu bude očekávat, že mu volající předá funkci, která bere vektor typů argumentů a vrací vektor typu návratové hodnoty.
-	*/
+		. Třída je schopná identifikovat operaci, jejíž je výsledkem:
+			(1) typem operace, jejíž výsledek reprezentuje (mfo::operation_type operation_result::operation_type)
+			(2) argumenty, se kterými byla operace spouštěná (operation_result::argument_t operation_result::operation_arguments)
+		
+		. Třída dokáže vrátit výsledek operace (operation_result::return_t operation_result::get)
+			--> pokud už nezná výsledek zavolá get na shared_future, jinak použije nacachovanou hodnotu - kvůli pravděpodobnému dlouhému kopírování vektorů jsem použil referenci, neměl by být problém, sdílený
+			stav žije do té doby, kdy žije poslední shared_future, né dokud žije promise/packaged_task, který jeho obsah naplnil. 
 
-	- Musíme být schopní třídě předat (constructor)
-		. doplňující paramtery, které tento speciální typ jobu potřebuje
-		. funkci, kterou job bude provádět v jiném vlákně
-	- Zároveň, jak už jsem psal výše, job obsahuje třídu thread a future, z nichž obě nemají copy-ctor. Proto i třída job, jako vlastník zdrojů "vlákno" a "hodnota výsledku",
-	nebude mít copy-ctor, ale pouze move c-tor a přiřazení přesunem (constructor).
+		Jelikož třída slouží jako náhled do dění (uživatel se kouká jaká operace to byla, kouká se jaký výsledek to byl) operation_result vrací vlastně jen konstantní reference. Nechává tak na uživateli aby si
+		výsledek, argumenty či typ operace zkopíroval, pokud bude tyto informace potřebovat i po konci životnosti výsledku.
 
-	- job musí být schopný thread spustit (void job::run())
-	- navíc si job musí uchovávat future, jelikož po spuštění vlákna už je packaged_task ve vlákně a future je už nedosažitelná. Nebude však poskytovat future přímo, ale pouze přes operation_result. Je to kvůli
-	tomu, že z std::future může být hodnota vyzvednuta pouze jednou a navíc samotná future nemá copy-ctor.
+V dalších implementacích by bylo vhodné, abych naimplementoval i zbytek API pro shared_future, např. wait, wait_for, wait_until.
 
-	- job musí být schopný ze sebe vyrobit odpovídající operation_result (operation_result job::to_result(std::unique_ptr<job>&&)) -> tady je nutné si uvědomit, že tím se programátor jakoby vzdává kontroly
-	nad jobem a předává ho operation_result
-		--> hází invalid_job_given pokud unique_ptr nevede na this.
-	- job navíc musí správně dealokovat všechny své zdroje. Tedy future pokud si jí nikdo nevzal a navíc i vlákno. Jelikož v destruktoru std::thread se čeká až vlákno doběhne, můžu s klidem nechat vygenerovat
-	defaultní destruktor, který automaticky zavolá destruktor na threadu a tak počká na dokončení práce.
+___________________________________________________________________________________________________________________________________________________________
+29.4. 2019	Třída thread_pool
 
-- třída operation_result
+	- Abstrakce
+
+		Třída představuje klasický thread pool, tedy "zásobník" vláken. Je schopna starat se o již doběhnutá vlákna a alokovat vlákna nová.
 	
-	Třída operation_result představuje výsledek operace a tím i vyjadřuje závislost na dané operaci. Je tedy intuitivní, že pokud uživatel chce vědět výsledek operace, pak si musí počkat až operace doběhne. 
-	Neintuitivní je bohužel fakt, že operation_result bude mít v (defualtním) destruktoru i destrukci unique_ptr<job>, který pak bude mít ve svém destruktoru zavolání destruktoru jobu, který má ve svém 
-	(defaultním) destruktoru i zavolání destruktoru threadu a ten čeká na ukončení vlákna. Jinými slovy třída operation_result, jakoby říkala, že nejdříve výsledek musíme znát a až pak ho můžeme zničit.
-	Jde o postup typický pro RAII, proto si myslím, že je takovéto zjednodušení zkousnutelné.
+	- Teorie
 
-	- operation_result musíme umět vytvořit z: (constructor)
-		. unique_ptr na job
-		. z future, který získáme z jobu (mohli bychom si ho vzít kdykoliv za pomocí odkazu, ale takto jasně stanovím kdy future vlastní job a kdy operation_result)
-	- kvůli unique_ptr, operation_result nebude mít copy-ctor, ale pouze move-ctor a move přiřazení.
+		Hlavní problém nastává v dealokaci vláken doběhnutých. Nejprve budu cílit na to, aby thread_pool uměl neběžící vlákna dealokovat, až pak se doplním funkcionalitu tak, aby doběhnutá vlákna znovu používal.
+		Abych z nebrzdil vlákno volajcího knihovnu, měl bych vlákna dealokovat z jiného běžícího vlákna. Je tedy potřeba dohodnout konvenci s jakou se vlákna budou vyhýbat race condition.
 
-	- operation_result bude mít v sobě uchovanou future, ke které nepovolí přímý přístup, ale skrz metodu operation_result::get() operation_result počká na doběhnutí jobu a vrátí hodnotu future.
-		--> třída bude muset být typovaná dle návratové hodnoty
+		Mám dvě vlákna, vlákno gc, které uklízí nepoužívané vlákna a vlákno knihovny, které do používaných vláken přidává další. Tedy je nutná synchronizace v přístupu k této vnitřní struktuře. Prozatím vyřeším
+		jednoduchým zámkem.
 
-	- defaultní destruktor postačí
+		Abych zmenšil možnost uspání nějakého vlákna, kvůli tomu, že se snaží získat zámek, který je už zamčený, použiji condition_variable. Chtěl bych dosáhnout toho, aby gc běželo mezi zadáním operací a tedy
+		aby nezaměstánvalo thread_pool, když si knihovna bude chtít získat nové vlákno.  
 
+		Tedy thread_pool při inicializaci rozběhne své gc vlákno, které se bude čekat na condition_variable. Až se vzbudí, zamkne strukturu, vyhledá vlákna, která už jsou nepoužívaná, vymaže je a zase se uspí.
+
+		Pro vnitřní kontejner budu používat unordered_map, pro klíč použiju thread::id. Vlákna budu vytahovat pomocí metody extract a budu je nechávat umírat. Jelikož thread::id je unikátní pouze mezi běžícími
+		vlákny, může se mi stát, že přidáváním novýh vláken do unordered_map dojde i k dealokaci(přepsání) již doběhnutých.
+
+		Ještě musím dořešit jak vlákno gc usmrtím. To vyřeší jednoduchá bool proměnná v thread_poolu, kterou bude muset gc vždy po vzbuzení zkontrolovat a pokud bude true, ukončit se. Na změnu této proměnné
+		tedy bude vyžadován (pro jednoduchost stejný jako na unordered_map) zámek.
+
+//TODO: napsat testy
+
+___________________________________________________________________________________________________________________________________________________________
+29.4. 2019	Třída mfo
+
+	
