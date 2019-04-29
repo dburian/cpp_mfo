@@ -17,15 +17,43 @@
                 "-g",
                 "-Wall",
                 "-std=c++17",
-                "-o", "bin/operate_test.out",
+                "-o",
+                "bin/operate_test.out",
                 "test/operate_test.cpp",
                 "src/operate.cpp",
-                "-l", "stdc++fs"
+                "-l",
+                "stdc++fs"
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "build test mfo lib",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-g",
+                "-Wall",
+                "-std=c++17",
+                "-o",
+                "bin/mfo_test.out",
+                "test/mfo_test.cpp",
+                "src/operate.cpp",
+                "src/optimalizer.cpp",
+                "src/thread_pool.cpp",
+                "src/validate.cpp",
+                "-l",
+                "stdc++fs"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
         }
     ]
 }

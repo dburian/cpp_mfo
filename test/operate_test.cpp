@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "../include/arg_types.h"
+#include "../src/arg_types.h"
 #include "../src/operate.h"
 
 namespace fs = std::filesystem;

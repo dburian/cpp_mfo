@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace mfo {
-    enum class operation_type {copy, move, remove, find, find_recursive}
+    enum class operation_type {copy, move, remove, find, find_recursive};
 
     template<class ReturnType, class ArgumentType>
     class operation_result {
@@ -21,8 +21,8 @@ namespace mfo {
         operation_result(std::filesystem::filesystem_error&& err, operation_type oper_t, const argument_t& arg)
             : m_err{std::move(err)}, m_arg{arg}, m_holds_error_state{true}, m_res_retrieved{false}, m_oper_t{oper_t} {}
 
-        const argument_t& operation_arguments() const;
-        const operation_type& operation_type() const;
+        const argument_t& peek_operation_arguments() const;
+        const operation_type& peek_operation_type() const;
 
         const return_t& get();
 
@@ -40,26 +40,37 @@ namespace mfo {
         operation_type m_oper_t;
         
     };
+
+    using copy_operation_result = operation_result<bool, copy_arg>;
+    using move_operation_result = operation_result<bool, move_arg>;
+    using remove_operation_result = operation_result<std::uintmax_t, remove_arg>;
+
+    
+    template<class UnaryPredicate>
+    using find_operation_result = operation_result<std::vector<std::filesystem::directory_entry>, find_arg<UnaryPredicate>>;
+    
+    template<class UnaryPredicate>
+    using find_recursive_operation_result = operation_result<std::vector<std::filesystem::directory_entry>, find_recursive_arg<UnaryPredicate>>;
 }
 
 template<class ReturnType, class ArgumentType>
-const ArgumentType& mfo::operation_result::operation_arguments() const {
+const ArgumentType& mfo::operation_result<ReturnType, ArgumentType>::peek_operation_arguments() const {
     return m_arg;
 }
 
 template<class ReturnType, class ArgumentType>
-const mfo::operation_type& mfo::operation_result::operation_type() const {
+const mfo::operation_type& mfo::operation_result<ReturnType, ArgumentType>::peek_operation_type() const {
     return m_oper_t;
 }
 
 
 template<class ReturnType, class ArgumentType>
-const RetrurnType& mfo::operation_result::get() {
+const ReturnType& mfo::operation_result<ReturnType, ArgumentType>::get() {
     if(m_holds_error_state) throw m_err;
 
     if(m_res_retrieved) return m_cached_res[m_index];
 
-    m_cached_res = m_res.get()
+    m_cached_res = m_res.get();
     m_res_retrieved = true;
 
     return m_cached_res[m_index];

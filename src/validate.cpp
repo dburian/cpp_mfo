@@ -59,13 +59,13 @@ bool mfo::validate::validate_move(const mfo::move_arg& arg, std::filesystem::fil
         return false;      
     }
 
-    if(arg.to.filename == "." || arg.to.filename == "..") {
+    if(arg.to.filename() == "." || arg.to.filename() == "..") {
         er = fs::filesystem_error(prefix + arg.to.string() + " ends with '.' or '..'", arg.from, arg.to, std::error_code());
         return false;
     }
 
     if(!fs::exists(arg.to.parent_path())) {
-        if(arg.to.filename == "") {
+        if(arg.to.filename() == "") {
             //to ends on `directory separator`
 
             er = fs::filesystem_error(prefix + arg.to.string() + " ends with directory seperator and names a non-existent directory", arg.from, arg.to, std::error_code());
@@ -76,7 +76,7 @@ bool mfo::validate::validate_move(const mfo::move_arg& arg, std::filesystem::fil
         return false;
     }
 
-    if(arg.from.filename == "") {
+    if(arg.from.filename() == "") {
         //from ends with `directory separator`
         er = fs::filesystem_error(prefix + arg.from.string() + " ends with directory seperator", arg.from, arg.to, std::error_code());
         return false;

@@ -1,6 +1,6 @@
 #include "thread_pool.h"
 
-mfo::thread_pool::thread_pool() : m_kill_gc{false}, m_threads{}, m_mtx{}, m_gc_wakeup{}, m_gc{gc} {}
+mfo::thread_pool::thread_pool() : m_threads{}, m_mtx{}, m_gc_wakeup{}, m_kill_gc{false} {}
 
 mfo::thread_pool::~thread_pool() noexcept {
     std::lock_guard lck {m_mtx};

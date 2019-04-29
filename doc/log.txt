@@ -381,9 +381,6 @@ ________________________________________________________________________________
 		. 'in_dir' je prázdný							'in_dir'																	'in_dir' is empty
 		. 'in_dir' neexistuje							'in_dir'																	'in_dir' does not exist
 
-
-	//TODO: Napsat testy pro jmenný prostor validate
-
 ___________________________________________________________________________________________________________________________________________________________
 28.4. 2019	Úvod do třídy mfo
 
@@ -407,8 +404,8 @@ ________________________________________________________________________________
 	(4)		. Pro každou multivláknovou operaci platí, že po rozběhnutí vláken se přislíbení hodnoty vrátí, ale vlákno samotné (tedy třída std::thread) musí žít dál. Tedy je potřeba si jí držet v nějakém
 				objektu s delší životností, než lokální proměnné metody. S tím souvisí i to, že je potřeba, aby vlákna někdo zničil (popřípadě znovu využil, ale někdy se zničit musí).
 
-	(1) Vcelku lidský formát vstupních argumentů mi připadá již představené typy copy_arg, move_arg, ..atd. Tedy do includu budeme muset zahrnout i header arg_types.h. Horší je to s návratovými hodnotami.
-	Dejme tomu, že uživatel předá jako vstupní argument const referenci a vektor copy_arg. Bude čekat, že za každý copy_arg se mu vrátí výsledek operace, v případě kopírování tedy bool. Rozvedu později.
+	(1) Vcelku lidský formát vstupních argumentů mi připadá již představené typy copy_arg, move_arg, ..atd. Horší je to s návratovými hodnotami. Dejme tomu, že uživatel předá jako vstupní argument const
+	referenci a vektor copy_arg. Bude čekat, že za každý copy_arg se mu vrátí výsledek operace, v případě kopírování tedy bool. Rozvedu později.
 
 	Pro další body je kritické abych si promyslel jak budu další vlákna vytvářet a jak z nich získám hodnoty. Rozhodl jsem se využít standartní knihovny, konkrétně třídy packaged_task. Ta umožňuje zabalit
 	funkci do balíčku, z něhož se snadno získá výsledek (ikdyž funkce běží v jiném vlákně), a který lze snadno předat vláknu (std::thread), který funkci provede. packaged_task se je třída typovaná dle
@@ -467,6 +464,7 @@ ________________________________________________________________________________
 		výsledek, argumenty či typ operace zkopíroval, pokud bude tyto informace potřebovat i po konci životnosti výsledku.
 
 V dalších implementacích by bylo vhodné, abych naimplementoval i zbytek API pro shared_future, např. wait, wait_for, wait_until.
+Teď to nevadí, ale v příštích implementacích pravděpodobně nebudu chtít aby měla třída copy-ctor.
 
 ___________________________________________________________________________________________________________________________________________________________
 29.4. 2019	Třída thread_pool
@@ -494,9 +492,43 @@ ________________________________________________________________________________
 		Ještě musím dořešit jak vlákno gc usmrtím. To vyřeší jednoduchá bool proměnná v thread_poolu, kterou bude muset gc vždy po vzbuzení zkontrolovat a pokud bude true, ukončit se. Na změnu této proměnné
 		tedy bude vyžadován (pro jednoduchost stejný jako na unordered_map) zámek.
 
-//TODO: napsat testy
+___________________________________________________________________________________________________________________________________________________________
+29.4. 2019 Resty
+
+	Začínají se mi hromadit resty, tak si je sepíšu sem na jedno místo:
+		. Napsat testy pro jmenný prostor validate 											//TODO
+		. Napsat testy pro thread_pool 														//TODO
+		. Přejmenovat třídu mfo v dokumentaci na controller									//TODO
+
 
 ___________________________________________________________________________________________________________________________________________________________
 29.4. 2019	Třída mfo
 
-	
+	Až teď jsem prozřel, že pojmenovat třídu stejně jako namespace není moudré. Proto třídu přejmenovávám na controller.
+
+	- Interface
+
+		. Jelikož třída má umět pracovat s libovolným optimalizérem, bude muset být typovaná dle typu optimalizéru.
+		. Třída bude mít sadu funkcí pr každou operaci(krom třídění - potom):
+			(1) public funkci, kterou bude volat uživatel
+			(2) private funkci, která k dané operaci bude představovat spouštěný task
+		
+		(1) budou postupovat jak už jsem uvedl:
+			. zvalidují operace, pro nevalidní vytvoří operation_result s vyjímkou, validní pošlou dále
+			. zoptimalizují validní operace
+			. vytvoří tasky, jejich future předají operation_result, které tak nainicializují
+			. na thread_poolu tasky spustí a vrátí vektor operation_result
+		
+		(2) budou postupovat následovně:
+			. vytvoří si vektor boolů
+			. pro každý argument zapíšou výsledek do vektoru
+			--> je důležité aby tato funkce dodržela pořadí výsledů a argumentů, jinak budou výsledky pomíchané
+
+		--> u (2) vzniká problém. Pokud operace selže, můžeme vrátit už jen false. Toto mi došlo až teď a tedy jsem s tím rozhodně nepočítal. Ale po nějakém uvažování mi došlo, že to nemusí být až tak marné.
+		Pokud budu optimista můžu uvažovat s předpoklady:
+			. uživatel ví co dělá, tedy nepíše kód stylem "zkusím to, ona mě knihovna kdyžtak varuje"
+			. v příštích verzích (které by mohly být uživatelsky přívětivější) bude namespace validate již rozšířenější a bude odchytávat víc chyb
+		
+		Tedy (2) bude vracet false při chybě.
+
+		Funkce (1) i (2) jsou velmi podobné pro copy, move i remove, proto až se bude knihovna blížit do finální verze a tato podobnost tam stále bude, stálo by za to to přepsat. Teď je to zkopírovaný :D.

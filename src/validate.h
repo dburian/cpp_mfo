@@ -3,7 +3,7 @@
 #pragma once
 
 #include <filesystem>
-#include "../include/arg_types.h"
+#include "arg_types.h"
 
 namespace mfo {
     namespace validate {

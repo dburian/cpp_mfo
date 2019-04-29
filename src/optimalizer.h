@@ -3,7 +3,7 @@
 #pragma once
 
 #include <vector>
-#include "../include/arg_types.h"
+#include "arg_types.h"
 
 namespace mfo {
     class optimalizer {
@@ -36,7 +36,7 @@ template<class UnaryPredicate> std::vector<std::vector<mfo::find_recursive_arg<U
 mfo::optimalizer::split_find_recursive_jobs(std::vector<mfo::find_recursive_arg<UnaryPredicate>>&& find_recursive_args, std::size_t num_of_threads) {
     std::vector<std::vector<mfo::find_recursive_arg<UnaryPredicate>>> jobsSplitted(1);
 
-    jobsSplitted[0] = std::move(find_recursive_args); 
+    jobsSplitted[0] = std::move(find_recursive_args);
     return jobsSplitted;
 }
 

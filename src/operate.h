@@ -2,10 +2,11 @@
 #define MFO_OPERATE_HEADER
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <vector>
 
-#include "../include/arg_types.h"
+#include "arg_types.h"
 
 namespace mfo {
     namespace operate {
