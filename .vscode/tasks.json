@@ -37,6 +37,7 @@
                 "-g",
                 "-Wall",
                 "-std=c++17",
+                "-pthread",
                 "-o",
                 "bin/mfo_test.out",
                 "test/mfo_test.cpp",

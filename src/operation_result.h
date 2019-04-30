@@ -15,11 +15,11 @@ namespace mfo {
         using argument_t = ArgumentType;
         using return_t = ReturnType;
 
-        operation_result(const std::shared_future<std::vector<return_t>>& res, std::size_t index, operation_type oper_t, const argument_t& arg)
-            : m_res{res}, m_index{index}, m_arg{arg}, m_holds_error_state{false}, m_res_retrieved{false}, m_oper_t{oper_t} {}
+        operation_result(const std::shared_future<std::vector<return_t>>& res, std::size_t index, operation_type&& oper_t, const argument_t& arg)
+            : m_holds_error_state{false}, m_res_retrieved{false}, m_err{"", std::error_code()}, m_res{res}, m_index{index}, m_arg{arg}, m_oper_t{std::move(oper_t)} {}
 
         operation_result(std::filesystem::filesystem_error&& err, operation_type oper_t, const argument_t& arg)
-            : m_err{std::move(err)}, m_arg{arg}, m_holds_error_state{true}, m_res_retrieved{false}, m_oper_t{oper_t} {}
+            :  m_holds_error_state{true}, m_res_retrieved{false}, m_err{std::move(err)}, m_arg{arg}, m_oper_t{oper_t} {}
 
         const argument_t& peek_operation_arguments() const;
         const operation_type& peek_operation_type() const;
@@ -33,7 +33,7 @@ namespace mfo {
         std::filesystem::filesystem_error m_err;
 
         std::shared_future<std::vector<return_t>> m_res;
-        const std::vector<return_t>& m_cached_res;
+        return_t m_cached_res;
         std::size_t m_index;
 
         argument_t m_arg;
@@ -68,12 +68,10 @@ template<class ReturnType, class ArgumentType>
 const ReturnType& mfo::operation_result<ReturnType, ArgumentType>::get() {
     if(m_holds_error_state) throw m_err;
 
-    if(m_res_retrieved) return m_cached_res[m_index];
-
-    m_cached_res = m_res.get();
+    if(!m_res_retrieved) m_cached_res = m_res.get()[m_index];
     m_res_retrieved = true;
 
-    return m_cached_res[m_index];
+    return m_cached_res;
 }
 
 #endif //MFO_OPERATION_RESULT_HEADER

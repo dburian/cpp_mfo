@@ -42,6 +42,45 @@
                 "/build/glibc-OTsEL5/" : "c:\\Users\\David\\AppData\\Local\\Packages\\CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc\\LocalState\\rootfs\\usr\\lib\\glibc\\glibc-2.27"
             }
             
+        },
+        {
+            "name": "(gdb) Launch mfo test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/mnt/d/Users/David/Documents/Matfyz/3.1/Cpp/zap/bin/mfo_test.out",
+            "args": ["test/mfo_test_file.txt"],
+            "stopAtEntry": false,
+            "cwd": "/mnt/d/Users/David/Documents/Matfyz/3.1/Cpp/zap",
+            "environment": [],
+            "externalConsole": false,
+            "windows": {
+                "MIMode": "gdb",
+                "miDebuggerPath": "/usr/bin/gdb",
+                "setupCommands": [
+                    {
+                        "description": "Enable pretty-printing for gdb",
+                        "text": "-enable-pretty-printing",
+                        "ignoreFailures": true
+                    },
+                    {
+                        "description": "Skip glibc files",
+                        "text": "-interpreter-exec console \"skip -gfi /build/**/*\""
+                    }
+                ]
+            },
+            "pipeTransport": {
+                "pipeCwd": "",
+                "pipeProgram": "c:\\windows\\sysnative\\bash.exe",
+                "pipeArgs": ["-c"],
+                "debuggerPath": "/usr/bin/gdb"
+            },
+            "sourceFileMap": {
+                "/mnt/c": "c:\\",
+                "/mnt/d": "d:\\",
+                "/usr": "c:\\Users\\David\\AppData\\Local\\Packages\\CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc\\LocalState\\rootfs\\usr",
+                "/build/glibc-OTsEL5/" : "c:\\Users\\David\\AppData\\Local\\Packages\\CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc\\LocalState\\rootfs\\usr\\lib\\glibc\\glibc-2.27"
+            }
+            
         }
     ]
 }

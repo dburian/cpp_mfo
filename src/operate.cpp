@@ -15,7 +15,7 @@ namespace mfo {
             return true;
         }
 
-        std::uintmax_t remove(const mfo::remove_arg arg) {
+        std::uintmax_t remove(const mfo::remove_arg& arg) {
             return fs::remove_all(arg.target);
         }
 

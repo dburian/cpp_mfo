@@ -19,7 +19,6 @@ namespace mfo{
     class controller {
     public:
         using optimalizer_t = Optimalizer;
-        controller() : m_optimalizer{} {}
 
         std::vector<copy_operation_result> copy(const std::vector<copy_arg>& args, std::size_t num_of_threads);
         std::vector<move_operation_result> move(const std::vector<move_arg>& args, std::size_t num_of_threads);
@@ -36,19 +35,19 @@ namespace mfo{
         using remove_task_t = std::packaged_task<std::vector<std::uintmax_t>(std::vector<remove_arg>&&)>;
 
         template<class UnaryPredicate>
-        using find_task_t = std::packaged_task<std::vector<fs::directory_entry>(std::vector<find_arg<UnaryPredicate>>&&)>;
+        using find_task_t = std::packaged_task<std::vector<std::vector<std::filesystem::directory_entry>>(std::vector<find_arg<UnaryPredicate>>&&)>;
         template<class UnaryPredicate>
-        using find_recursive_task_t = std::packaged_task<std::vector<fs::directory_entry>(std::vector<find_recursive_arg<UnaryPredicate>>&&)>;
+        using find_recursive_task_t = std::packaged_task<std::vector<std::vector<std::filesystem::directory_entry>>(std::vector<find_recursive_arg<UnaryPredicate>>&&)>;
 
 
-        std::vector<bool> copy_task(std::vector<copy_arg>&& args);
-        std::vector<bool> move_task(std::vector<move_arg>&& args);
-        std::vector<std::uintmax_t> remove_task(std::vector<remove_arg>&& args);
+        static std::vector<bool> copy_task(std::vector<copy_arg>&& args);
+        static std::vector<bool> move_task(std::vector<move_arg>&& args);
+        static std::vector<std::uintmax_t> remove_task(std::vector<remove_arg>&& args);
 
         template<class UnaryPredicate>
-        std::vector<fs::directory_entry> find_task(std::vector<find_arg<UnaryPredicate>>&& args);
+        static std::vector<std::vector<std::filesystem::directory_entry>> find_task(std::vector<find_arg<UnaryPredicate>>&& args);
         template<class UnaryPredicate>
-        std::vector<fs::directory_entry> find_recursive_task(std::vector<find_recursive_arg<UnaryPredicate>>&& args);
+        static std::vector<std::vector<std::filesystem::directory_entry>> find_recursive_task(std::vector<find_recursive_arg<UnaryPredicate>>&& args);
 
         optimalizer_t m_optimalizer;
         thread_pool m_threads;
@@ -73,9 +72,12 @@ std::vector<mfo::copy_operation_result> mfo::controller<Optimalizer>::copy(const
     std::vector<std::vector<mfo::copy_arg>> optimalizedArgs = m_optimalizer.split_copy_jobs(std::move(validArgs), num_of_threads);
 
     while(!optimalizedArgs.empty()) {
-        std::vector<mfo::copy_arg> v = optimalizedArgs.pop_back();
+        
+        std::vector<mfo::copy_arg> v;                   //
+        std::swap(v, optimalizedArgs.back());           // hopefully cheap move
+        optimalizedArgs.pop_back();                     //
 
-        copy_task_t t{copy_task};
+        copy_task_t t(copy_task);
         auto sharedF = t.get_future().share();
 
         for(std::size_t i = 0; i < v.size(); ++i)
@@ -104,7 +106,10 @@ std::vector<mfo::move_operation_result> mfo::controller<Optimalizer>::move(const
     std::vector<std::vector<mfo::move_arg>> optimalizedArgs = m_optimalizer.split_move_jobs(std::move(validArgs), num_of_threads);
 
     while(!optimalizedArgs.empty()) {
-        std::vector<mfo::move_arg> v = optimalizedArgs.pop_back();
+
+        std::vector<mfo::move_arg> v;               //
+        std::swap(v, optimalizedArgs.back());       // hopefully cheap move
+        optimalizedArgs.pop_back();                 //
 
         move_task_t t{move_task};
         auto sharedF = t.get_future().share();
@@ -136,7 +141,10 @@ std::vector<mfo::remove_operation_result> mfo::controller<Optimalizer>::remove(c
     std::vector<std::vector<mfo::remove_arg>> optimalizedArgs = m_optimalizer.split_remove_jobs(std::move(validArgs), num_of_threads);
 
     while(!optimalizedArgs.empty()) {
-        std::vector<mfo::remove_arg> v = optimalizedArgs.pop_back();
+
+        std::vector<mfo::remove_arg> v;             //
+        std::swap(v, optimalizedArgs.back());       // hopefully cheap move
+        optimalizedArgs.pop_back();                 //
 
         remove_task_t t{remove_task};
         auto sharedF = t.get_future().share();
@@ -169,9 +177,12 @@ std::vector<mfo::find_operation_result<UnaryPredicate>> mfo::controller<Optimali
     std::vector<std::vector<mfo::find_arg<UnaryPredicate>>> optimalizedArgs = m_optimalizer.split_find_jobs(std::move(validArgs), num_of_threads);
 
     while(!optimalizedArgs.empty()) {
-        std::vector<mfo::find_arg<UnaryPredicate>> v = optimalizedArgs.pop_back();
 
-        find_task_t<UnaryPredicate> t{find_task};
+        std::vector<mfo::find_arg<UnaryPredicate>> v;               //
+        std::swap(v, optimalizedArgs.back());                       // hopefully cheap move
+        optimalizedArgs.pop_back();                                 //
+
+        find_task_t<UnaryPredicate> t{find_task<UnaryPredicate>};
         auto sharedF = t.get_future().share();
 
         for(std::size_t i = 0; i < v.size(); ++i)
@@ -202,9 +213,12 @@ std::vector<mfo::find_recursive_operation_result<UnaryPredicate>> mfo::controlle
     std::vector<std::vector<mfo::find_recursive_arg<UnaryPredicate>>> optimalizedArgs = m_optimalizer.split_find_recursive_jobs(std::move(validArgs), num_of_threads);
 
     while(!optimalizedArgs.empty()) {
-        std::vector<mfo::find_recursive_arg<UnaryPredicate>> v = optimalizedArgs.pop_back();
 
-        find_recursive_task_t<UnaryPredicate> t{find_recursive_task};
+        std::vector<mfo::find_recursive_arg<UnaryPredicate>> v;     //
+        std::swap(v, optimalizedArgs.back());                       // hopefully cheap move
+        optimalizedArgs.pop_back();                                 //
+
+        find_recursive_task_t<UnaryPredicate> t{find_recursive_task<UnaryPredicate>};
         auto sharedF = t.get_future().share();
 
         for(std::size_t i = 0; i < v.size(); ++i)
@@ -212,23 +226,22 @@ std::vector<mfo::find_recursive_operation_result<UnaryPredicate>> mfo::controlle
         
         m_threads.start_thread(std::move(t), std::move(v));
     }
+
+    return results;
 }
 
 
 // DEFINITIONS OF TASKS
 template<class Optimalizer>
 std::vector<bool> mfo::controller<Optimalizer>::copy_task(std::vector<mfo::copy_arg>&& args) {
-    std::vector<bool> results{args.size()};
+    std::vector<bool> results(args.size());
 
-    std::size_t i = args.size() - 1;
-    
-    while(!args.empty()) {
+    for(std::size_t i = 0; i < args.size(); ++i) {
         try {
             results[i] = mfo::operate::copy(args[i]);
-        }catch (std::filesystem::filesystem_error) {
+        }catch (const std::filesystem::filesystem_error& er) {
             results[i] = false;
         }
-        --i;
     }
 
     return results;
@@ -236,17 +249,14 @@ std::vector<bool> mfo::controller<Optimalizer>::copy_task(std::vector<mfo::copy_
 
 template<class Optimalizer>
 std::vector<bool> mfo::controller<Optimalizer>::move_task(std::vector<mfo::move_arg>&& args) {
-    std::vector<bool> results{args.size()};
+    std::vector<bool> results(args.size());
 
-    std::size_t i = args.size() - 1;
-    
-    while(!args.empty()) {
+    for(std::size_t i = 0; i < args.size(); ++i) {
         try {
             results[i] = mfo::operate::move(args[i]);
-        }catch (std::filesystem::filesystem_error) {
+        }catch (const std::filesystem::filesystem_error& er) {
             results[i] = false;
         }
-        --i;
     }
 
     return results;
@@ -254,17 +264,14 @@ std::vector<bool> mfo::controller<Optimalizer>::move_task(std::vector<mfo::move_
 
 template<class Optimalizer>
 std::vector<std::uintmax_t> mfo::controller<Optimalizer>::remove_task(std::vector<mfo::remove_arg>&& args) {
-    std::vector<std::uintmax_t> results{args.size()};
+    std::vector<std::uintmax_t> results(args.size());
 
-    std::size_t i = args.size() - 1;
-    
-    while(!args.empty()) {
+    for(std::size_t i = 0; i < args.size(); ++i) {
         try {
             results[i] = mfo::operate::remove(args[i]);
-        }catch (std::filesystem::filesystem_error) {
-            results[i] = false;
+        }catch (const std::filesystem::filesystem_error& er) {
+            results[i] = static_cast<std::uintmax_t>(-1);
         }
-        --i;
     }
 
     return results;
@@ -272,18 +279,15 @@ std::vector<std::uintmax_t> mfo::controller<Optimalizer>::remove_task(std::vecto
 
 template<class Optimalizer>
 template<class UnaryPredicate>
-std::vector<std::filesystem::directory_entry> mfo::controller<Optimalizer>::find_task(std::vector<mfo::find_arg<UnaryPredicate>>&& args) {
-    std::vector<std::filesystem::directory_entry> results{args.size()};
+std::vector<std::vector<std::filesystem::directory_entry>> mfo::controller<Optimalizer>::find_task(std::vector<mfo::find_arg<UnaryPredicate>>&& args) {
+    std::vector<std::vector<std::filesystem::directory_entry>> results(args.size());
 
-    std::size_t i = args.size() - 1;
-    
-    while(!args.empty()) {
+    for(std::size_t i = 0; i < args.size(); ++i) {
         try {
             results[i] = mfo::operate::find(args[i]);
-        }catch (std::filesystem::filesystem_error) {
-            results[i] = false;
+        }catch (const std::filesystem::filesystem_error& er) {
+            results[i] = std::vector<std::filesystem::directory_entry>();
         }
-        --i;
     }
 
     return results;
@@ -291,18 +295,15 @@ std::vector<std::filesystem::directory_entry> mfo::controller<Optimalizer>::find
 
 template<class Optimalizer>
 template<class UnaryPredicate>
-std::vector<std::filesystem::directory_entry> mfo::controller<Optimalizer>::find_recursive_task(std::vector<mfo::find_recursive_arg<UnaryPredicate>>&& args) {
-    std::vector<std::filesystem::directory_entry> results{args.size()};
+std::vector<std::vector<std::filesystem::directory_entry>> mfo::controller<Optimalizer>::find_recursive_task(std::vector<mfo::find_recursive_arg<UnaryPredicate>>&& args) {
+    std::vector<std::vector<std::filesystem::directory_entry>> results{args.size()};
 
-    std::size_t i = args.size() - 1;
-    
-    while(!args.empty()) {
+    for(std::size_t i = 0; i < args.size(); ++i) {
         try {
-            results[i] = mfo::operate::find(args[i]);
-        }catch (std::filesystem::filesystem_error) {
-            results[i] = false;
+            results[i] = mfo::operate::find_recursive(args[i]);
+        }catch (const std::filesystem::filesystem_error& er) {
+            results[i] = std::vector<std::filesystem::directory_entry>();
         }
-        --i;
     }
 
     return results;

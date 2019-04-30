@@ -499,6 +499,9 @@ ________________________________________________________________________________
 		. Napsat testy pro jmenný prostor validate 											//TODO
 		. Napsat testy pro thread_pool 														//TODO
 		. Přejmenovat třídu mfo v dokumentaci na controller									//TODO
+		. Napsat nějaké testy pro mfo														//TODO
+		. Přečíst si po sobě log															//TODO
+		. Shrnout práci																		//TODO
 
 
 ___________________________________________________________________________________________________________________________________________________________
@@ -532,3 +535,33 @@ ________________________________________________________________________________
 		Tedy (2) bude vracet false při chybě.
 
 		Funkce (1) i (2) jsou velmi podobné pro copy, move i remove, proto až se bude knihovna blížit do finální verze a tato podobnost tam stále bude, stálo by za to to přepsat. Teď je to zkopírovaný :D.
+
+___________________________________________________________________________________________________________________________________________________________
+30.4. 2019	Testování
+
+	. Objevil se problém, že stl kontejnery vlastně neumožňují move-out operace. Všechno jsou převlečené copy ctory či assignmenty. Jedna vyjímka je unordered_set a unordered_map, které dovolují extractovat
+	elementy tak jak bych si přál. Problém je, že v tascích potřebuju udržet pořadí a tak bych si stejnak moc nepomohl. Hlavní problém, jsou argumenty, které cestují skrz celou knihovnu:
+
+		(1) uživatel předá referenci na argument controlleru
+		(2) controller je buď překopíruje už do operation_result(nevalidní argumenty se v knihovně dále nekopírují) nebo do vektoru validních argumentů
+		(3) vektor validních argumentů se přesune do optimalizéru, který si je nutně z vektoru musí vykopírovat
+		(4) každý vektor, který optimalizér vrátí, se ještě musí vykopírovat z hromadného vektoru vektorů a pak se přesune do packaged_tasku
+
+	Tedy sečteno podtrženo, každý argument se v nejhorším případě kopíruje 3x. Pokud by optimalizér pracoval s unordered_map nebo unordered_set, dal by se počet kopírování snížit na 1.
+	//POSSIBLE TODO
+
+	. Tasky jsou nyní statické (mělo mě to napadnout)
+
+	. Vzhledem k tomu, že shared_future stejně vrací referenci, připadá mi nesmyslné si tu referenci cachovat abych si ušetřil jedno volání. Navíc se čeká, že uživatel si zjistí výsledek párkrát. Tedy
+	operation_result si už necachuje výsledek.
+
+	. std::thread si žádá aby byla kompilace zadána z příznakem "-pthread"
+
+	. Jak se ukázalo, std::thread ve svém destruktoru nečeká až vlákno doběhne a jak vyskakující vyjímky ukázaly, je nutné aby se na doběhnutí vlákna čekalo. Tedy thread_pool ve svém 
+	destrkutoru bude čekat až vlákna v thread_poolu i vlákno gc doběhnou.
+
+	. Hlášení vyjímek vypadalo divně ("filesystem error: mfo::operate::remove : /tmp/test_copy.txt does not exist: Success [/tmp/test_copy.txt]"), změnil jsem defaultní použitý error_code na -1 v kategorii
+	std::system_category() 
+
+	
+			

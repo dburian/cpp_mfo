@@ -3,9 +3,16 @@
 mfo::thread_pool::thread_pool() : m_threads{}, m_mtx{}, m_gc_wakeup{}, m_kill_gc{false} {}
 
 mfo::thread_pool::~thread_pool() noexcept {
-    std::lock_guard lck {m_mtx};
+    m_mtx.lock();                   // LOCK
+
+    for(auto&& t: m_threads) 
+        t.second.join();
+
     m_kill_gc = true;
     m_gc_wakeup.notify_all();
+    m_mtx.unlock();                 // UNLOCK
+
+    m_gc.join();
 }
 
 void mfo::thread_pool::gc() {
@@ -21,6 +28,5 @@ void mfo::thread_pool::gc() {
 
         for(auto&& thread: m_threads) 
             if(!thread.second.joinable()) m_threads.extract(thread.first); // invalidates only current iterator
-
     }
 }

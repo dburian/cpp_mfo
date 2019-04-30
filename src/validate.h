@@ -24,14 +24,15 @@ template<class UnaryPredicate>
 bool mfo::validate::validate_find(const mfo::find_arg<UnaryPredicate>& arg, std::filesystem::filesystem_error& er) {
     namespace fs = std::filesystem;
     std::string prefix = "mfo::operate::find : ";
+    std::error_code err_code(-1, std::system_category());
 
-    if(arg.in.empty()) {
-        er = fs::filesystem_error(prefix + "in_dir is empty", arg.in, std::error_code());
+    if(arg.in_dir.empty()) {
+        er = fs::filesystem_error(prefix + "in_dir is empty", arg.in_dir, err_code);
         return false;
     }
 
-    if(fs::exists(arg.in)) {
-        er = fs::filesystem_error(prefix + arg.in + "does not exist", arg.in, std::error_code());
+    if(!fs::exists(arg.in_dir)) {
+        er = fs::filesystem_error(prefix + arg.in_dir.string() + "does not exist", arg.in_dir, err_code);
         return false;
     }
 
@@ -42,14 +43,15 @@ template<class UnaryPredicate>
 bool mfo::validate::validate_find_recursive(const mfo::find_recursive_arg<UnaryPredicate>& arg, std::filesystem::filesystem_error& er) {
     namespace fs = std::filesystem;
     std::string prefix = "mfo::operate::find_recursive : ";
+    std::error_code err_code(-1, std::system_category());
 
-    if(arg.in.empty()) {
-        er = fs::filesystem_error(prefix + "in_dir is empty", arg.in, std::error_code());
+    if(arg.in_dir.empty()) {
+        er = fs::filesystem_error(prefix + "in_dir is empty", arg.in_dir, err_code);
         return false;
     }
 
-    if(fs::exists(arg.in)) {
-        er = fs::filesystem_error(prefix + arg.in + "does not exist", arg.in, std::error_code());
+    if(!fs::exists(arg.in_dir)) {
+        er = fs::filesystem_error(prefix + arg.in_dir.string() + "does not exist", arg.in_dir, err_code);
         return false;
     }
 

@@ -8,8 +8,6 @@
 namespace mfo {
     class optimalizer {
     public:
-        optimalizer();
-
         std::vector<std::vector<copy_arg>> split_copy_jobs(std::vector<copy_arg>&& copy_args, std::size_t num_of_threads);
         std::vector<std::vector<move_arg>> split_move_jobs(std::vector<move_arg>&& move_args, std::size_t num_of_threads);
         std::vector<std::vector<remove_arg>> split_remove_jobs(std::vector<remove_arg>&& remove_args, std::size_t num_of_threads);
