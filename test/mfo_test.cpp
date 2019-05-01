@@ -192,10 +192,10 @@ int main(int argc, char**argv) {
         fs::path movedFile("/tmp/test_moved.txt");
         fs::path movedFile2("/tmp/test_moved2.txt");
 
-        std::vector<mfo::move_arg> args_m{mfo::move_arg(existentFile, movedFile), mfo::move_arg(existentFile, movedFile2)};
+        std::vector<mfo::move_arg> args_m{mfo::move_arg(existentFile, movedFile), mfo::move_arg(existentFile, movedFile2)};         //one of the move must fail
         test_move(args_m, c);
 
-        std::vector<mfo::move_arg> args_m2{mfo::move_arg(movedFile, existentFile)};
+        std::vector<mfo::move_arg> args_m2{mfo::move_arg(movedFile, existentFile), mfo::move_arg(movedFile2, existentFile)};        //consequently one these moves must fail too
         test_move(args_m2, c);
 
         auto alwaysTrue = [](const fs::directory_entry& d) {return true;};

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "../src/arg_types.h"
-#include "../src/optimalizer.h"
+#include "../src/one_thread_optimalizer.h"
 #include "../src/operate.h"
 #include "../src/operation_result.h"
 #include "../src/thread_pool.h"
@@ -15,7 +15,7 @@
 
 namespace mfo{
 
-    template <class Optimalizer = optimalizer>
+    template <class Optimalizer = one_thread_optimalizer>
     class controller {
     public:
         using optimalizer_t = Optimalizer;
@@ -39,6 +39,11 @@ namespace mfo{
         template<class UnaryPredicate>
         using find_recursive_task_t = std::packaged_task<std::vector<std::vector<std::filesystem::directory_entry>>(std::vector<find_recursive_arg<UnaryPredicate>>&&)>;
 
+        template<class ArgType, class ReturnType>
+        std::vector<ReturnType> multithreaded_operation(const std::vector<ArgType>& args, std::size_t num_of_threads, operation_type oper_t);
+
+        template<class ArgType, class TaskReturnType>
+        std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)> create_task();
 
         static std::vector<bool> copy_task(std::vector<copy_arg>&& args);
         static std::vector<bool> move_task(std::vector<move_arg>&& args);
@@ -54,180 +59,85 @@ namespace mfo{
     };
 }
 
-
 template<class Optimalizer>
-std::vector<mfo::copy_operation_result> mfo::controller<Optimalizer>::copy(const std::vector<mfo::copy_arg>& args, std::size_t num_of_threads) {
-    std::vector<mfo::copy_operation_result> results;
-    std::vector<mfo::copy_arg> validArgs;
+template<class ArgType, class ResultType>
+std::vector<ResultType> mfo::controller<Optimalizer>::multithreaded_operation(const std::vector<ArgType>& args, std::size_t num_of_threads, mfo::operation_type oper_t) {
+    std::vector<ResultType> results;
+    mfo::arg_set<ArgType> validArgs;
 
     std::filesystem::filesystem_error err{"", std::error_code()};
 
-    for(const mfo::copy_arg& arg: args) {
-        if(!mfo::validate::validate_copy(arg, err)) 
+    for(const ArgType& arg: args) {
+        if(!mfo::validate::validate_arbitrary(arg, err)) 
             results.emplace_back(std::move(err), mfo::operation_type::copy, arg);
         else
-            validArgs.push_back(arg);
+            validArgs.push_back(arg);                                               // First copy of argument
     }
 
-    std::vector<std::vector<mfo::copy_arg>> optimalizedArgs = m_optimalizer.split_copy_jobs(std::move(validArgs), num_of_threads);
+    auto&& optimalizedArgSets = m_optimalizer.split_jobs(std::move(validArgs), num_of_threads);
 
-    while(!optimalizedArgs.empty()) {
+    while(!optimalizedArgSets.empty()) {
         
-        std::vector<mfo::copy_arg> v;                   //
-        std::swap(v, optimalizedArgs.back());           // hopefully cheap move
-        optimalizedArgs.pop_back();                     //
+        mfo::arg_set<ArgType> v = std::move(optimalizedArgSets.back());       
+        optimalizedArgSets.pop_back();                     
 
-        copy_task_t t(copy_task);
-        auto sharedF = t.get_future().share();
+        auto task = create_task<ArgType, typename ResultType::return_t>();
+        auto sharedF = task.get_future().share();
 
         for(std::size_t i = 0; i < v.size(); ++i)
             results.emplace_back(sharedF, i, mfo::operation_type::copy, v[i]);
         
-        m_threads.start_thread(std::move(t), std::move(v));
+        m_threads.start_thread(std::move(task), std::move(v));
     }
 
     return results;
+}
+
+template<class Optimalizer>
+template<class ArgType, class TaskReturnType>
+std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)> mfo::controller<Optimalizer>::create_task() {
+    
+    if constexpr (std::is_same<ArgType, mfo::copy_arg>::value)
+        return std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)>(copy_task);
+
+    else if constexpr (std::is_same<ArgType, mfo::move_arg>::value)
+        return std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)>(move_task);
+
+    else if constexpr (std::is_same<ArgType, mfo::remove_arg>::value)
+        return std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)>(remove_task);
+
+    else if constexpr (std::is_same<ArgType, mfo::find_arg<typename ArgType::predicate_t>>::value)
+        return std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)>(find_task<typename ArgType::predicate_t>);
+
+    else if constexpr (std::is_same<ArgType, mfo::find_recursive_arg<typename ArgType::predicate_t>>::value)
+        return std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)>(find_recursive_task<typename ArgType::predicate_t>);
+}
+
+template<class Optimalizer>
+std::vector<mfo::copy_operation_result> mfo::controller<Optimalizer>::copy(const std::vector<mfo::copy_arg>& args, std::size_t num_of_threads) {
+    return multithreaded_operation<mfo::copy_arg, mfo::copy_operation_result>(args, num_of_threads, mfo::operation_type::copy);
 }
 
 template<class Optimalizer>
 std::vector<mfo::move_operation_result> mfo::controller<Optimalizer>::move(const std::vector<mfo::move_arg>& args, std::size_t num_of_threads) {
-    std::vector<mfo::move_operation_result> results;
-    std::vector<mfo::move_arg> validArgs;
-
-    std::filesystem::filesystem_error err{"", std::error_code()};
-
-    for(const mfo::move_arg& arg: args) {
-        if(!mfo::validate::validate_move(arg, err)) 
-            results.emplace_back(std::move(err), mfo::operation_type::move, arg);
-        else
-            validArgs.push_back(arg);
-    }
-
-    std::vector<std::vector<mfo::move_arg>> optimalizedArgs = m_optimalizer.split_move_jobs(std::move(validArgs), num_of_threads);
-
-    while(!optimalizedArgs.empty()) {
-
-        std::vector<mfo::move_arg> v;               //
-        std::swap(v, optimalizedArgs.back());       // hopefully cheap move
-        optimalizedArgs.pop_back();                 //
-
-        move_task_t t{move_task};
-        auto sharedF = t.get_future().share();
-
-        for(std::size_t i = 0; i < v.size(); ++i)
-            results.emplace_back(sharedF, i, mfo::operation_type::move, v[i]);
-        
-        m_threads.start_thread(std::move(t), std::move(v));
-    }
-
-    return results;
+    return multithreaded_operation<mfo::move_arg, mfo::move_operation_result>(args, num_of_threads, mfo::operation_type::move);
 }
-
 
 template<class Optimalizer>
 std::vector<mfo::remove_operation_result> mfo::controller<Optimalizer>::remove(const std::vector<mfo::remove_arg>& args, std::size_t num_of_threads) {
-    std::vector<mfo::remove_operation_result> results;
-    std::vector<mfo::remove_arg> validArgs;
-
-    std::filesystem::filesystem_error err{"", std::error_code()};
-
-    for(const mfo::remove_arg& arg: args) {
-        if(!mfo::validate::validate_remove(arg, err)) 
-            results.emplace_back(std::move(err), mfo::operation_type::remove, arg);
-        else
-            validArgs.push_back(arg);
-    }
-
-    std::vector<std::vector<mfo::remove_arg>> optimalizedArgs = m_optimalizer.split_remove_jobs(std::move(validArgs), num_of_threads);
-
-    while(!optimalizedArgs.empty()) {
-
-        std::vector<mfo::remove_arg> v;             //
-        std::swap(v, optimalizedArgs.back());       // hopefully cheap move
-        optimalizedArgs.pop_back();                 //
-
-        remove_task_t t{remove_task};
-        auto sharedF = t.get_future().share();
-
-        for(std::size_t i = 0; i < v.size(); ++i)
-            results.emplace_back(sharedF, i, mfo::operation_type::remove, v[i]);
-        
-        m_threads.start_thread(std::move(t), std::move(v));
-    }
-
-    return results;
+    return multithreaded_operation<mfo::remove_arg, mfo::remove_operation_result>(args, num_of_threads, mfo::operation_type::remove);
 }
-
 
 template<class Optimalizer>
 template<class UnaryPredicate>
 std::vector<mfo::find_operation_result<UnaryPredicate>> mfo::controller<Optimalizer>::find(const std::vector<mfo::find_arg<UnaryPredicate>>& args, std::size_t num_of_threads) {
-    std::vector<mfo::find_operation_result<UnaryPredicate>> results;
-    std::vector<mfo::find_arg<UnaryPredicate>> validArgs;
-
-    std::filesystem::filesystem_error err{"", std::error_code()};
-
-    for(const mfo::find_arg<UnaryPredicate>& arg: args) {
-        if(!mfo::validate::validate_find(arg, err)) 
-            results.emplace_back(std::move(err), mfo::operation_type::find, arg);
-        else
-            validArgs.push_back(arg);
-    }
-
-    std::vector<std::vector<mfo::find_arg<UnaryPredicate>>> optimalizedArgs = m_optimalizer.split_find_jobs(std::move(validArgs), num_of_threads);
-
-    while(!optimalizedArgs.empty()) {
-
-        std::vector<mfo::find_arg<UnaryPredicate>> v;               //
-        std::swap(v, optimalizedArgs.back());                       // hopefully cheap move
-        optimalizedArgs.pop_back();                                 //
-
-        find_task_t<UnaryPredicate> t{find_task<UnaryPredicate>};
-        auto sharedF = t.get_future().share();
-
-        for(std::size_t i = 0; i < v.size(); ++i)
-            results.emplace_back(sharedF, i, mfo::operation_type::find, v[i]);
-        
-        m_threads.start_thread(std::move(t), std::move(v));
-    }
-
-    return results;
+    return multithreaded_operation<mfo::find_arg<UnaryPredicate>, mfo::find_operation_result<UnaryPredicate>>(args, num_of_threads, mfo::operation_type::find);
 }
-
 
 template<class Optimalizer>
 template<class UnaryPredicate>
 std::vector<mfo::find_recursive_operation_result<UnaryPredicate>> mfo::controller<Optimalizer>::find_recursive(const std::vector<mfo::find_recursive_arg<UnaryPredicate>>& args, std::size_t num_of_threads) {
-    std::vector<mfo::find_recursive_operation_result<UnaryPredicate>> results;
-    std::vector<mfo::find_recursive_arg<UnaryPredicate>> validArgs;
-
-    std::filesystem::filesystem_error err{"", std::error_code()};
-
-    for(const mfo::find_recursive_arg<UnaryPredicate>& arg: args) {
-        if(!mfo::validate::validate_find_recursive(arg, err)) 
-            results.emplace_back(std::move(err), mfo::operation_type::find_recursive, arg);
-        else
-            validArgs.push_back(arg);
-    }
-
-    std::vector<std::vector<mfo::find_recursive_arg<UnaryPredicate>>> optimalizedArgs = m_optimalizer.split_find_recursive_jobs(std::move(validArgs), num_of_threads);
-
-    while(!optimalizedArgs.empty()) {
-
-        std::vector<mfo::find_recursive_arg<UnaryPredicate>> v;     //
-        std::swap(v, optimalizedArgs.back());                       // hopefully cheap move
-        optimalizedArgs.pop_back();                                 //
-
-        find_recursive_task_t<UnaryPredicate> t{find_recursive_task<UnaryPredicate>};
-        auto sharedF = t.get_future().share();
-
-        for(std::size_t i = 0; i < v.size(); ++i)
-            results.emplace_back(sharedF, i, mfo::operation_type::find_recursive, v[i]);
-        
-        m_threads.start_thread(std::move(t), std::move(v));
-    }
-
-    return results;
+    return multithreaded_operation<mfo::find_recursive_arg<UnaryPredicate>, mfo::find_recursive_operation_result<UnaryPredicate>>(args, num_of_threads, mfo::operation_type::find_recursive);
 }
 
 

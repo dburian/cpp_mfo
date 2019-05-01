@@ -42,7 +42,7 @@
                 "bin/mfo_test.out",
                 "test/mfo_test.cpp",
                 "src/operate.cpp",
-                "src/optimalizer.cpp",
+                "src/one_thread_optimalizer.cpp",
                 "src/thread_pool.cpp",
                 "src/validate.cpp",
                 "-l",

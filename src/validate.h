@@ -3,7 +3,9 @@
 #pragma once
 
 #include <filesystem>
+
 #include "arg_types.h"
+#include "operation_type.h"
 
 namespace mfo {
     namespace validate {
@@ -17,6 +19,9 @@ namespace mfo {
         bool validate_find(const find_arg<UnaryPredicate>& arg, fs::filesystem_error& er);
         template<class UnaryPredicate>
         bool validate_find_recursive(const find_recursive_arg<UnaryPredicate>& arg, fs::filesystem_error& er);
+
+        template<class ArgType>
+        bool validate_arbitrary(const ArgType& arg, fs::filesystem_error& er);
     }
 }
 
@@ -58,4 +63,21 @@ bool mfo::validate::validate_find_recursive(const mfo::find_recursive_arg<UnaryP
     return true;
 }
 
+template<class ArgType>
+bool mfo::validate::validate_arbitrary(const ArgType& arg, std::filesystem::filesystem_error& er) {
+    if constexpr (std::is_same<ArgType, mfo::copy_arg>::value)
+        return mfo::validate::validate_copy(arg, er);
+
+    else if constexpr (std::is_same<ArgType, mfo::move_arg>::value)
+        return mfo::validate::validate_move(arg, er);
+
+    else if constexpr (std::is_same<ArgType, mfo::remove_arg>::value)
+        return mfo::validate::validate_remove(arg, er);
+
+    else if constexpr (std::is_same<ArgType, mfo::find_arg<typename ArgType::predicate_t>>::value)
+        return mfo::validate::validate_find(arg, er);
+
+    else if constexpr (std::is_same<ArgType, mfo::find_recursive_arg<typename ArgType::predicate_t>>::value)
+        return mfo::validate::validate_find_recursive(arg, er);
+}
 #endif //MFO_VALIDATE_HEADER

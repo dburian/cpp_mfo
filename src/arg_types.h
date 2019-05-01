@@ -3,6 +3,7 @@
 #pragma once
 
 #include <filesystem>
+#include <unordered_map>
 
 namespace mfo {
     namespace fs = std::filesystem;
@@ -15,7 +16,13 @@ namespace mfo {
         fs::path to;
     };
 
-    using move_arg = copy_arg;
+    struct move_arg {
+        move_arg(const fs::path& init_from, const fs::path& init_to) : from{init_from}, to{init_to} {} 
+        move_arg(fs::path&& init_from, fs::path&& init_to) : from{std::move(init_from)}, to{std::move(init_to)} {}
+
+        fs::path from;
+        fs::path to;
+    };
 
     struct remove_arg {
         remove_arg(const fs::path& init_target) : target{init_target} {}
@@ -28,6 +35,8 @@ namespace mfo {
     struct find_arg {
         find_arg(const fs::path& init_in, UnaryPredicate&& init_p) : in_dir{init_in}, predicate{std::move(init_p)} {}
         find_arg(fs::path&& init_in, UnaryPredicate&& init_p) : in_dir{std::move(init_in)}, predicate{std::move(init_p)} {}
+
+        using predicate_t = UnaryPredicate;
 
         fs::path in_dir;
         UnaryPredicate predicate;
@@ -44,6 +53,8 @@ namespace mfo {
         find_recursive_arg(const fs::path& init_in, UnaryPredicate&& init_p) : in_dir{init_in}, predicate{std::move(init_p)} {}
         find_recursive_arg(fs::path&& init_in, UnaryPredicate&& init_p) : in_dir{std::move(init_in)}, predicate{std::move(init_p)} {}
 
+        using predicate_t = UnaryPredicate; 
+
         fs::path in_dir;
         UnaryPredicate predicate;
     };
@@ -52,6 +63,9 @@ namespace mfo {
     find_recursive_arg(const fs::path& init_in, UnaryPredicate&& init_p) -> find_recursive_arg<UnaryPredicate>;
     template<class UnaryPredicate>
     find_recursive_arg(fs::path&& init_in, UnaryPredicate&& init_p) -> find_recursive_arg<UnaryPredicate>;
+
+    template<class ArgType>
+    using arg_set = std::vector<ArgType>;
 }
 
 

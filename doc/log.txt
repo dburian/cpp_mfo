@@ -97,7 +97,7 @@ Poté co jsem architekturu celé knihovny vyjádřil s pomocí několika funkcí
 																	  |                         | bool valid_copy(file, file) |
 																	  |                         | ...                         |
 +-----------------------------------------------------------+         |                         |                             |
-|mfo                                                  class |         |                         +-----------------------------+
+|controller                                           class |         |                         +-----------------------------+
 +-----------------------------------------------------------+         |
 |                                                           |  +------+
 |  vector<result> oper(vector<args>, max_number_of_threads) |         |
@@ -123,7 +123,7 @@ Poté co jsem architekturu celé knihovny vyjádřil s pomocí několika funkcí
 
 
 
-Třída mfo(multithreaded file operations)
+Třída controller("ovladač" celé knihovny)
 	- Tato třída má sloužit pouze jako obalení knihovny a poskytnutí jednoduššího API. Stále si nejsem jist, zda jsem neměl pouze do jednoho namespacu "nacpat" příslušné metody a nechat uživatele ať
 	stav, který by si knihovna jinak uchovávala, předá při volání. Jedná se o dva přístupy, které mají své pro a proti (a jejichž kombinace by byla zmatečná), ale nakonec jsem se rozhodl API uzavřít do třídy.
 	Hlavně kvůli tomu, že jasně vymezuje co je interface knihovny, umožňuje si šikovně pamatovat stav, ve kterém knihovna je, umožňuje nabídnutí jednodušího API. Negativem tohoto přístupu je, že uživatel knihovnu
@@ -138,7 +138,7 @@ Namespace validate
 Třída optimalizer
 	- Třída, která optimalizuje jednotlivé operace. Je více než pravděpodobné, že si pokročilejší optimalizéry budou uchovávat nějakou cache, či stav, proto jsem zvolil třídu. Z toho samého důvodu jsem také optimalizační
 	funkce shluknul do jedné třídy.
-	- Další idea, která mě vedla k implementaci optimalizeru jako třídy, je modularita. V příštích verzích knihovny by pak mohlo být možné mfo předat jiný optimalizér, než ten defaultní.
+	- Další idea, která mě vedla k implementaci optimalizeru jako třídy, je modularita. V příštích verzích knihovny by pak mohlo být možné controller předat jiný optimalizér, než ten defaultní.
 
 Namespace operate
 	- Namespace se všemi operacemi.
@@ -146,9 +146,9 @@ Namespace operate
 
 Samozřejmě, že budou existovat typy a namespacy mimo výše zmíněné, ale ty nejsou důležité pro architekturu knihovny.
 Tedy použití knihovny bude cca takovéhle:
-	- Uživatel zinicializuje mfo
-	- zavolá API mfo
-	- mfo zinicializuje nové vlákno, pustí v něm funkci X a vrátí future uživateli
+	- Uživatel zinicializuje controller
+	- zavolá API controlleru
+	- controller zinicializuje nové vlákno, pustí v něm funkci X a vrátí future uživateli
 	- funkce X zvaliduje operaci, předá ji optimalizéru a následně vytvoří tolik vláken kolik optimalizér určil a vrátí futures
 
 ___________________________________________________________________________________________________________________________________________________________
@@ -317,7 +317,7 @@ API optimalizeru
 
 	Všechny metody jsou dimenzovány tak aby sloužili jako transformace původních argumentů. Tedy vektory v argumentech se vykrádají a měli by po zavolání optimalizačních metod zpravidla zůstávat prázdné.
 
-	Prozatím jsem všechny metody implementoval primitivně. Metody ignorují počet vláken a vše přidělí vláknu prvnímu.
+	Prozatím jsem všechny metody implementoval primitivně a mou konkrétní implementaci optimalizeru jsem nazaval one_thread_optimalizer. Metody ignorují počet vláken a vše přidělí vláknu prvnímu.
 
 
 ___________________________________________________________________________________________________________________________________________________________
@@ -330,7 +330,7 @@ ________________________________________________________________________________
 	Otázka je, jak nakládat s chybovými stavy. Pokud validate metody chybový stav neodhalí, metody operate vyhodí std::filesystem::filesystem_error. Na jednu stranu tedy nechci vyhazovat vyjímky, jelikož
 	nejde o vyjímečný stav - validate počítá s tím, že občas nějaká operace bude zadána chybně. Vyjímečný stav je to až tehdy, kdy metoda operate má splnit operaci, kterou díky chybnému zadání není jak splnit.
 	Na druhou stranu nechci aby se uživatel musel trápit s dvěma způsoby hlášení chybných stavů. Proto jsem se rozhodl, že knihovna bude hlásit chybné stavy vyjímkami. Důvod je prostý. Knihovna má za úkol provést
-	nějakou operaci, ale chybné argumenty jí to neumožní, jde tedy o vyjímečný stav. Bude to tedy fungovat tak, že metody validate budou vracet nějak vhodně zabalený chybový stav. Třída mfo pak bude imitovat
+	nějakou operaci, ale chybné argumenty jí to neumožní, jde tedy o vyjímečný stav. Bude to tedy fungovat tak, že metody validate budou vracet nějak vhodně zabalený chybový stav. Třída controller pak bude imitovat
 	vyjímky, které by vznikly, kdyby se chybový stav neobjevil a zabalí je stejným způsobem jako výsledky operací. Tedy cílím na to, aby pro jedny chybové argumenty dostala k uživateli future, která bude mít
 	v sobě vyjímku, kterou by metody operate stejně vyhodili.
 
@@ -382,23 +382,23 @@ ________________________________________________________________________________
 		. 'in_dir' neexistuje							'in_dir'																	'in_dir' does not exist
 
 ___________________________________________________________________________________________________________________________________________________________
-28.4. 2019	Úvod do třídy mfo
+28.4. 2019	Úvod do třídy controller
 
-	Nyní je vlastně jasné jak zbytek knihovny bude fungovat a zbývá jen dodefinovat třídu mfo, která vše spojí dohromady.
+	Nyní je vlastně jasné jak zbytek knihovny bude fungovat a zbývá jen dodefinovat třídu controller, která vše spojí dohromady.
 
 	- Abstrakce
 
-		Jak už bylo asi předesláno, třída mfo bude sloužit jako entrypoint a API celé knihovny. Uživatel si naincluduje header se třídou mfo a bude moci začít knihovnu používat. Zároveň třída mfo představuje
-		jisté nastavení celé knihovny. Moje představa je, že v budoucnu bude mít třída vnitřní stav a například si bude uchovávat copy_options a různé jiné nastavení operací. Třída mfo tak kompletuje balíček
-		validátoru, optimalizéru a prováděče operací.
+		Jak už bylo asi předesláno, třída controller bude sloužit jako entrypoint a API celé knihovny. Uživatel si naincluduje header se třídou controller a bude moci začít knihovnu používat. Zároveň třída
+		controller představuje jisté nastavení celé knihovny. Moje představa je, že v budoucnu bude mít třída vnitřní stav a například si bude uchovávat copy_options a různé jiné nastavení operací. Třída 
+		controller tak kompletuje balíček validátoru, optimalizéru a prováděče operací.
 	
 	- API
 
-		Již jsem uvedl co má mfo všechno umět. Teď abych si ujasnil co vše je potřeba při jednotlivých operacích, rozepíšu chtěné chování třídy a tím určím i její interface.
+		Již jsem uvedl co má controller všechno umět. Teď abych si ujasnil co vše je potřeba při jednotlivých operacích, rozepíšu chtěné chování třídy a tím určím i její interface.
 
 		- Společné pro všechny operace
 
-	(1)		. Pro každou operaci platí, že bych chtěl aby argumenty předávané mfo i návratové hodnoty metod mfo, byly v nějakém lidském tvaru.
+	(1)		. Pro každou operaci platí, že bych chtěl aby argumenty předávané controller i návratové hodnoty metod controller, byly v nějakém lidském tvaru.
 	(2)		. Pro každou operaci, kterou je třeba zvalidovat platí, že pro argumenty, které nejsou validní je potřeba vygenerovat to co se uživateli bude jevit jako výsledek nezdařené operace.
 	(3)		. Pro každou multivláknovou operaci platí, že po obdržení rozložené práce od optimalizéru, je potřeba vygenerovat funkce, které v samotném vlákně poběží.
 	(4)		. Pro každou multivláknovou operaci platí, že po rozběhnutí vláken se přislíbení hodnoty vrátí, ale vlákno samotné (tedy třída std::thread) musí žít dál. Tedy je potřeba si jí držet v nějakém
@@ -424,7 +424,7 @@ ________________________________________________________________________________
 	hodnotu tak, abych mohl v příštích verzích jednu z předchozích možností naimplementovat, beze změny API knihovny.
 
 	Zvolím si třetí z možností. Vytvořím třídu operation_result, která v sobě bude mít kopii argumentů operace, jejíž výsledek bude reprezentovat, kopii shared_future, která bude vracet vektor návratových
-	hodnot operací a index, který určí jaký z výsledků ve vektoru je operace, kterou operation_result reprezentuje. Metody mfo pak vždy vezmou vektor argumentů, který je určený jednomu vláknu, pro každý z
+	hodnot operací a index, který určí jaký z výsledků ve vektoru je operace, kterou operation_result reprezentuje. Metody controlleru pak vždy vezmou vektor argumentů, který je určený jednomu vláknu, pro každý z
 	těchto argumentů vytvoří operation_result, vytvoří packaged_task a na její future zavolají share(), čímž dostanou shared_future, kterou můžou rozkopírovat do všech operation_result. Tuto packaged_task pak
 	přesunou do nového vlákna a tím ji spustí.
 
@@ -443,13 +443,13 @@ ________________________________________________________________________________
 
 	- Abstrakce
 
-		Třída reprezentuje výsledek jakékoliv operace třídy mfo. Jelikož bude více typů návratových hodnot a také více typů argumentů, bude tato třída muset být typovaná. Pomocí aliasů se však vyhneme
+		Třída reprezentuje výsledek jakékoliv operace třídy controlleru. Jelikož bude více typů návratových hodnot a také více typů argumentů, bude tato třída muset být typovaná. Pomocí aliasů se však vyhneme
 		zdlouhavým deklaracím/definicím.
 	
 	- Interface
 
 		. Třídu operation_result je potřeba zkostruovat dvěma různými způsoby: (constructor)
-			(1) Předáním shared_future, indexu a argumentů 			-- klasická konstrukce, shared_future přichází od packaged_tasku, předání správného indexu a argumentů zajišťuje kód mfo 
+			(1) Předáním shared_future, indexu a argumentů 			-- klasická konstrukce, shared_future přichází od packaged_tasku, předání správného indexu a argumentů zajišťuje kód controller 
 			(2) Předáním vyjímky a argumentů						-- konstrukce výsledku pro chybný stav ošetřený ve jmenném prostoru validate
 		
 		. Třída je schopná identifikovat operaci, jejíž je výsledkem:
@@ -496,16 +496,19 @@ ________________________________________________________________________________
 29.4. 2019 Resty
 
 	Začínají se mi hromadit resty, tak si je sepíšu sem na jedno místo:
-		. Napsat testy pro jmenný prostor validate 											//TODO
-		. Napsat testy pro thread_pool 														//TODO
-		. Přejmenovat třídu mfo v dokumentaci na controller									//TODO
-		. Napsat nějaké testy pro mfo														//TODO
+		. Napsat testy pro jmenný prostor validate 											//POSSIBLE TODO
+		. Napsat testy pro thread_pool 														//POSSIBLE TODO
+		. Přejmenovat třídu mfo v dokumentaci na controller									//DONE
+		. Napsat nějaké testy pro mfo														//DONE
 		. Přečíst si po sobě log															//TODO
 		. Shrnout práci																		//TODO
+		. Napsat složitější optimalizer														//TODO
+		. Přejmenovat optimalizer na one_thread_optimalizer									//DONE
+		. Otestovat mfo i se složitějším optimalizerem										//TODO
 
 
 ___________________________________________________________________________________________________________________________________________________________
-29.4. 2019	Třída mfo
+29.4. 2019	Třída controller
 
 	Až teď jsem prozřel, že pojmenovat třídu stejně jako namespace není moudré. Proto třídu přejmenovávám na controller.
 
@@ -547,8 +550,8 @@ ________________________________________________________________________________
 		(3) vektor validních argumentů se přesune do optimalizéru, který si je nutně z vektoru musí vykopírovat
 		(4) každý vektor, který optimalizér vrátí, se ještě musí vykopírovat z hromadného vektoru vektorů a pak se přesune do packaged_tasku
 
-	Tedy sečteno podtrženo, každý argument se v nejhorším případě kopíruje 3x. Pokud by optimalizér pracoval s unordered_map nebo unordered_set, dal by se počet kopírování snížit na 1.
-	//POSSIBLE TODO
+	Tedy sečteno podtrženo, každý argument se v nejhorším případě kopíruje 3x. Pokud by optimalizér pracoval s unordered_map nebo unordered_set, dal by se počet kopírování snížit na 1. (Nesnížil -> viz. 1.5.)
+
 
 	. Tasky jsou nyní statické (mělo mě to napadnout)
 
@@ -564,4 +567,24 @@ ________________________________________________________________________________
 	std::system_category() 
 
 	
-			
+Po napsání pár testů jsem rozhodnutý prohlásit, že žádné velké chyby ve validate nejsou (,proto je nyní z todo, possible todo).
+
+___________________________________________________________________________________________________________________________________________________________
+1.5. 2019	Refactoring kódu
+
+	Rozhodl jsem se zlepšit trochu přehlednost kódu a zmenšit jeho velikost následujícími zákroky:
+
+		. Validátor i Optimalizér musí mít odteď jen jednu povinnou metodu, která validuje/optimalizuje dle templatov0ho argumentu (statický if constexpr)
+			--> Aby mechanizmus mohl fungovat přidal jsem k find_arg a find_recursive_arg i vnitřní typ predicate_t, za pomocí kterého se pak už rovnost na typ dá provést
+			--> Jelikož move_arg byl defakto stejný typ jako copy_arg, statické rozhodování nefungovalo. Musel jsem tedy napsat nový typ move_arg, který je ale pouze zkopírovaný copy_arg
+
+		. Tím mohou být všechny public metody controlleru přepsány do jedné generické metody (jelikož až na typy dělaly prakticky to samé)
+	
+	Navíc jsem se pokusil u optimalizéru změnit interface. Pak jsem si ale uvědomil, že ikdyž má unordered_map v interfacu extract, vrací jen node, který sice vlastní původní hodnotu v mapě, ale stále neumožňuje jí movenout z nodu
+	samotného. Proto jsem se vrátil zpět k vektorové verzi. Navíc jsem zjistil pozoruhodnou věc. I přestože operator[] vrací reference, std::move(vec[0]), volá move-ctor.
+
+
+___________________________________________________________________________________________________________________________________________________________
+30.4. 2019	Třída even_optimalizer
+
+	Abych otestoval trochu více vláknovitost programu, napíšu další optimalizer. Stále nebude vůbec optimalizovat, pouze rozdělí práci rovným dílem.

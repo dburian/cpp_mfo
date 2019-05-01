@@ -6,8 +6,9 @@
 #include <future>
 #include <vector>
 
+#include "operation_result.h"
+
 namespace mfo {
-    enum class operation_type {copy, move, remove, find, find_recursive};
 
     template<class ReturnType, class ArgumentType>
     class operation_result {
