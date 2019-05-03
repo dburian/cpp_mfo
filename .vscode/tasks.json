@@ -43,6 +43,7 @@
                 "test/mfo_test.cpp",
                 "src/operate.cpp",
                 "src/one_thread_optimalizer.cpp",
+                "src/even_optimalizer.cpp",
                 "src/thread_pool.cpp",
                 "src/validate.cpp",
                 "-l",

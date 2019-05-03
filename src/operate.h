@@ -34,7 +34,7 @@ std::vector<std::filesystem::directory_entry> mfo::operate::find_recursive(const
 
     // fs::end(fs::recursive_directory_iterator) returns default-constructed fs::recursive_directory_iterator which serves as an end iterator.
     std::find_if(files, std::filesystem::end(files), [&arg, &filesFound](const std::filesystem::directory_entry& d) {
-        if(arg.predicate(d)) filesFound.push_back(d);
+        if((*(arg.predicate))(d)) filesFound.push_back(d);
         return false;
     }); 
 
@@ -48,7 +48,7 @@ std::vector<std::filesystem::directory_entry> mfo::operate::find(const find_arg<
     std::vector<std::filesystem::directory_entry> filesFound;
 
     std::find_if(files, std::filesystem::end(files), [&arg, &filesFound](const std::filesystem::directory_entry& d) {
-        if(arg.predicate(d)) filesFound.push_back(d);
+        if((*(arg.predicate))(d)) filesFound.push_back(d);
         return false;
     });
 

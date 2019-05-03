@@ -9,6 +9,7 @@ namespace mfo {
     namespace fs = std::filesystem;
 
     struct copy_arg {
+        copy_arg() = default;
         copy_arg(const fs::path& init_from, const fs::path& init_to) : from{init_from}, to{init_to} {} 
         copy_arg(fs::path&& init_from, fs::path&& init_to) : from{std::move(init_from)}, to{std::move(init_to)} {}
 
@@ -17,6 +18,7 @@ namespace mfo {
     };
 
     struct move_arg {
+        move_arg() = default;
         move_arg(const fs::path& init_from, const fs::path& init_to) : from{init_from}, to{init_to} {} 
         move_arg(fs::path&& init_from, fs::path&& init_to) : from{std::move(init_from)}, to{std::move(init_to)} {}
 
@@ -25,6 +27,7 @@ namespace mfo {
     };
 
     struct remove_arg {
+        remove_arg() = default;
         remove_arg(const fs::path& init_target) : target{init_target} {}
         remove_arg(fs::path&& init_target) : target{std::move(init_target)} {}
 
@@ -33,13 +36,15 @@ namespace mfo {
 
     template<class UnaryPredicate>
     struct find_arg {
-        find_arg(const fs::path& init_in, UnaryPredicate&& init_p) : in_dir{init_in}, predicate{std::move(init_p)} {}
-        find_arg(fs::path&& init_in, UnaryPredicate&& init_p) : in_dir{std::move(init_in)}, predicate{std::move(init_p)} {}
-
         using predicate_t = UnaryPredicate;
 
+        find_arg() = default;
+        find_arg(const fs::path& init_in, UnaryPredicate* init_p) : in_dir{init_in}, predicate{init_p} {}
+        find_arg(fs::path&& init_in, UnaryPredicate* init_p) : in_dir{std::move(init_in)}, predicate{init_p} {}
+
+
         fs::path in_dir;
-        UnaryPredicate predicate;
+        const predicate_t* predicate;
     };
 
     template<class UnaryPredicate>
@@ -50,13 +55,14 @@ namespace mfo {
     //Not using aliases due to CTAD not working for aliases
     template<class UnaryPredicate>
     struct find_recursive_arg {
-        find_recursive_arg(const fs::path& init_in, UnaryPredicate&& init_p) : in_dir{init_in}, predicate{std::move(init_p)} {}
-        find_recursive_arg(fs::path&& init_in, UnaryPredicate&& init_p) : in_dir{std::move(init_in)}, predicate{std::move(init_p)} {}
-
         using predicate_t = UnaryPredicate; 
 
+        find_recursive_arg() = default;
+        find_recursive_arg(const fs::path& init_in, UnaryPredicate* init_p) : in_dir{init_in}, predicate{init_p} {}
+        find_recursive_arg(fs::path&& init_in, UnaryPredicate* init_p) : in_dir{std::move(init_in)}, predicate{init_p} {}
+
         fs::path in_dir;
-        UnaryPredicate predicate;
+        const predicate_t* predicate;
     };
 
     template<class UnaryPredicate>

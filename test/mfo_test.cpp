@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "../include/controller.h"
+#include "../src/even_optimalizer.h"
 
 namespace fs = std::filesystem;
 
@@ -177,7 +178,7 @@ void test_find_recursive(const std::vector<mfo::find_recursive_arg<UnaryPredicat
 
 int main(int argc, char**argv) {
     try {
-        mfo::controller c;
+        mfo::controller<mfo::even_optimalizer> c;
     
         fs::path existentFile("/tmp/test.txt"); // must exist
         fs::path copiedFile("/tmp/test_copy.txt");
@@ -198,14 +199,16 @@ int main(int argc, char**argv) {
         std::vector<mfo::move_arg> args_m2{mfo::move_arg(movedFile, existentFile), mfo::move_arg(movedFile2, existentFile)};        //consequently one these moves must fail too
         test_move(args_m2, c);
 
-        auto alwaysTrue = [](const fs::directory_entry& d) {return true;};
+        std::function<bool(const fs::directory_entry&)> alwaysTrue = [](const fs::directory_entry& d) { return true; };
+        std::function<bool(const fs::directory_entry&)> hiddenDirs = [](const fs::directory_entry& d) { return d.is_directory() && d.path().filename().string()[0] == '.'; };
 
-        std::vector<mfo::find_arg<decltype(alwaysTrue)>> args_f{mfo::find_arg(fs::temp_directory_path(), std::move(alwaysTrue))};
+        std::vector<mfo::find_arg<decltype(alwaysTrue)>> args_f{mfo::find_arg(fs::temp_directory_path(), &alwaysTrue), mfo::find_arg(fs::path("/home/david"), &hiddenDirs)};
         test_find(args_f, c);
-
-        auto bashScripts = [] (const fs::directory_entry& d) {return d.path().extension() == ".sh";};
         
-        std::vector<mfo::find_recursive_arg<decltype(bashScripts)>> args_f_r{mfo::find_recursive_arg(fs::path("/home/david"), std::move(bashScripts))};
+        std::function<bool(const fs::directory_entry&)> bashScripts = [] (const fs::directory_entry& d) { return d.path().extension() == ".sh"; };
+        std::function<bool(const fs::directory_entry&)> zshScripts = [] (const fs::directory_entry& d) { return d.path().extension() == ".zsh"; };
+
+        std::vector<mfo::find_recursive_arg<decltype(bashScripts)>> args_f_r{mfo::find_recursive_arg(fs::path("/home/david"), &bashScripts), mfo::find_recursive_arg(fs::path("/home/david"), &zshScripts)};
         test_find_recursive(args_f_r, c);
 
     }catch(const std::exception& ex) {

@@ -502,9 +502,9 @@ ________________________________________________________________________________
 		. Napsat nějaké testy pro mfo														//DONE
 		. Přečíst si po sobě log															//TODO
 		. Shrnout práci																		//TODO
-		. Napsat složitější optimalizer														//TODO
+		. Napsat složitější optimalizer														//DONE
 		. Přejmenovat optimalizer na one_thread_optimalizer									//DONE
-		. Otestovat mfo i se složitějším optimalizerem										//TODO
+		. Otestovat mfo i se složitějším optimalizerem										//DONE
 
 
 ___________________________________________________________________________________________________________________________________________________________
@@ -588,3 +588,7 @@ ________________________________________________________________________________
 30.4. 2019	Třída even_optimalizer
 
 	Abych otestoval trochu více vláknovitost programu, napíšu další optimalizer. Stále nebude vůbec optimalizovat, pouze rozdělí práci rovným dílem.
+
+	Při přepisování kódu jsem narazil na to, že předávané predikáty nemusí mít move assignment. Navíc když jsem se podíval do testovaného příkladu, zjistil jsem, že používat ten samý predikát
+	pro více (i sekvenciálních) find operací je nemožné, protože celý predikát přesouvám dovnitř argumentu. Rozhodl jsem se tedy kód přepsat tak, že predikáty jsou používané pouze přes pointer.
+	Využívám pointer, jelikož bych chtěl pro všechny arg_types mít defaultní konstrkuktor. Do reference by se tedy muselo něco vložit, lepší než vymýšlet nějaké defaultní funkce mi připadá použít nullptr.
