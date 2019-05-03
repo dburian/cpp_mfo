@@ -129,7 +129,7 @@ Třída controller("ovladač" celé knihovny)
 	Hlavně kvůli tomu, že jasně vymezuje co je interface knihovny, umožňuje si šikovně pamatovat stav, ve kterém knihovna je, umožňuje nabídnutí jednodušího API. Negativem tohoto přístupu je, že uživatel knihovnu
 	musí inicializovat. (Ale kdydby programátor chtěl překopírovat jeden soubor, asi se neobtěžuje s celou knihovnou.)
 
-	//- Do této třídy jsem zahrnul i onen "wrapper," probraný v bodu IV.
+	//- Do této třídy bych zahrnul i onen "wrapper," probraný v bodu IV.
 
 Namespace validate
 	- Namespace ve kterém budu uchovávat metody, které zvalidují danou operaci. Za normálních okolností by se operace validovala až těsně před svým provedením, ale zde je logické operaci nejdřív zvalidovat a pak až
@@ -149,7 +149,7 @@ Tedy použití knihovny bude cca takovéhle:
 	- Uživatel zinicializuje controller
 	- zavolá API controlleru
 	- controller zinicializuje nové vlákno, pustí v něm funkci X a vrátí future uživateli
-	- funkce X zvaliduje operaci, předá ji optimalizéru a následně vytvoří tolik vláken kolik optimalizér určil a vrátí futures
+	- funkce X zvaliduje operaci, předá ji optimalizéru a následně vytvoří tolik vláken kolik optimalizér určil a vrátí výsledky operací
 
 ___________________________________________________________________________________________________________________________________________________________
 23.3. 2019 Naming Convention
@@ -230,8 +230,8 @@ Knihovna je pod správou gitu.
 ___________________________________________________________________________________________________________________________________________________________
 22.4. 2019 Namespace operate
 
-V zájmu jasnosti návrhu nechám na operacích ať pouze kopírují a o zbytek se postarají vyšší vrstvy. (O validitu operací se postará namespace validate, o multivláknovost se postará vrstva "jobů" pod 
-	optimalizační vrstvou)
+V zájmu jasnosti návrhu nechám na operacích ať provádí právě a jenom onu operaci (např. kopírování) a o zbytek se postarají vyšší vrstvy. (O validitu operací se postará namespace validate, o multivláknovost se postará vrstva 
+optimalizéru plus samotná třída controller).
 
 Jelikož je namespace operate vlastně jen předefinovává funkce z namespacu std::filesystem, je nutné se podívat, jaké API knihovna filesystem nabízí. U několika funkcí std::filesystem poskytuje, dvě verze funkcí.
 Jednu sadu pro oznamování chyb návratovým parametrem a druhou sadu funkcí, která chyby oznamuje vyhozením vyjímky. Vzhledem k tomu, že hlavní chyby budu detekovat ve validační vrstvě, nedojde k velkému zpomalení
@@ -263,7 +263,7 @@ je velmi rychlé a proto operate::remove bude volat přímo remove_all (zdá se,
 Vyhledávání
 
 Stejně jako funkce operate::copy, operate::move a operate::remove představují tu nejmenší jednotku práce i operate::find jsem koncipoval jako nejjednodušší vyhledávání. std::filesystem nabízí dvě možnosti
-jak proiterovat adresář; std::filesystem::directory_iterator a std::filesystem::recursive_directory_iterator. Druhý z nich umí velde jednoduchého projití adresáře(funkcionalita prvního zmíněného iterátoru)
+jak proiterovat adresář; std::filesystem::directory_iterator a std::filesystem::recursive_directory_iterator. Druhý z nich umí vedle jednoduchého projití adresáře(funkcionalita prvního zmíněného iterátoru)
 i rekurzivně projít adresáře pod ním. Moje implementace metody operate::find tedy bude spoléhat na rekurzivní iterátor, jelikož je obecnější a lze očekávat, že nebude o mnoho pomalejší. Na druhou stranu
 implementace s rekurzivním iterátorem neumožňuje procházení limitovat hloubkou zanoření. Lze očekávat, že uživatel bude chtít mít větší kontrolu nad tím, kde se vyhledává. Proto nadefinuji i další funkci, která
 bude hledat pouze v hloubce 1, v daném adresáři.
@@ -300,8 +300,8 @@ ________________________________________________________________________________
 API optimalizeru
 
 	Už jsem si ujasnil jakou úlohu bude optimalizér hrát v celkovém návrhu knihovny. Bude rozdělovat práci mezi vlákna. Každá operace si žádá nějaký počet argumentů, o této množině můžu zamýšlet jako o jedné
-	jednotce práce, neboť pokud korespondující operace dostane tuto množinu argumentů vykoná definovanou operaci v namespacu operate. Tedy například operate::copy potřebuje dva argumenty a tedy pár argumentů,
-	konkrétně pár cest, pak reprezentuje jednu jednotku práce, tedy vykonání jedné kopie. Pak v těchto termínech metody optimalizeru dostanou množinu jednotek práce a mají vracet množinu množin jednotek práce.
+	jednotce práce, neboť pokud korespondující operace dostane tuto množinu argumentů vykoná definovanou operaci v namespacu operate. Tedy například operate::copy potřebuje dva argumenty,	konkrétně pár cest. Pak 
+	reprezentuje jednu jednotku práce, tedy vykonání jedné kopie. Pak v těchto termínech metody optimalizeru dostanou množinu jednotek práce a mají vracet množinu množin jednotek práce.
 	Prakticky to znamená že metody optimalizeru budou brát vektor jednotek práce (typ jednotky práce záleží na operaci) a bude vrace vektor vektorů jednotek množin práce.
 
 	Jelikož už bylo zmíněno, že optimalizer bude možné dodat i externě, měl bych detailněji specifikovat co od této třídy čekám. Avšak čas mě tlačí a tak to sepíšu až jindy.
@@ -323,13 +323,13 @@ API optimalizeru
 ___________________________________________________________________________________________________________________________________________________________
 28.4. 2019	Namespace validate
 
-	Jmenný prostor validate má za úkol zvalidovat operace. Validaci operace dělá i jmenný prostor filesystem a tak není potřeba nacházet všechny chybné stavy. Validaci jsem předsunul proto, aby se již třída
+	Jmenný prostor validate má za úkol zvalidovat operace. Validaci operace dělá i jmenný prostor filesystem a tak není potřeba nacházet všechny chybové stavy. Validaci jsem předsunul proto, aby se již třída
 	optimalizer mohla spolehnout na to, že jsou operace validní. Je tedy snaha odchytit co nejvíce zřejmých chybných stavů za co nejkratší čas. Velmi dobrý návod poskytuje popis operací ve jmenném prostoru
 	std::filesystem.
 
 	Otázka je, jak nakládat s chybovými stavy. Pokud validate metody chybový stav neodhalí, metody operate vyhodí std::filesystem::filesystem_error. Na jednu stranu tedy nechci vyhazovat vyjímky, jelikož
 	nejde o vyjímečný stav - validate počítá s tím, že občas nějaká operace bude zadána chybně. Vyjímečný stav je to až tehdy, kdy metoda operate má splnit operaci, kterou díky chybnému zadání není jak splnit.
-	Na druhou stranu nechci aby se uživatel musel trápit s dvěma způsoby hlášení chybných stavů. Proto jsem se rozhodl, že knihovna bude hlásit chybné stavy vyjímkami. Důvod je prostý. Knihovna má za úkol provést
+	Na druhou stranu nechci aby se uživatel musel trápit s dvěma způsoby hlášení chybových stavů. Proto jsem se rozhodl, že knihovna bude hlásit chybové stavy vyjímkami. Důvod je prostý. Knihovna má za úkol provést
 	nějakou operaci, ale chybné argumenty jí to neumožní, jde tedy o vyjímečný stav. Bude to tedy fungovat tak, že metody validate budou vracet nějak vhodně zabalený chybový stav. Třída controller pak bude imitovat
 	vyjímky, které by vznikly, kdyby se chybový stav neobjevil a zabalí je stejným způsobem jako výsledky operací. Tedy cílím na to, aby pro jedny chybové argumenty dostala k uživateli future, která bude mít
 	v sobě vyjímku, kterou by metody operate stejně vyhodili.
@@ -367,7 +367,7 @@ ________________________________________________________________________________
 
 		Chybová situace									filesystem_error::path1				filesystem_error::path2					chybová hláška vracená filesystem_error::what
 		. 'target' je prázdný							'target'																	'target' is empty
-		. 'target' neexistuje							'target'																	'tartget' does not exist
+		. 'target' neexistuje							'target'																	'target' does not exist
 	
 	Chybové stavy pro find:
 
@@ -384,7 +384,7 @@ ________________________________________________________________________________
 ___________________________________________________________________________________________________________________________________________________________
 28.4. 2019	Úvod do třídy controller
 
-	Nyní je vlastně jasné jak zbytek knihovny bude fungovat a zbývá jen dodefinovat třídu controller, která vše spojí dohromady.
+	Nyní je vlastně jasné, jak zbytek knihovny bude fungovat a zbývá jen dodefinovat třídu controller, která vše spojí dohromady.
 
 	- Abstrakce
 
@@ -398,23 +398,23 @@ ________________________________________________________________________________
 
 		- Společné pro všechny operace
 
-	(1)		. Pro každou operaci platí, že bych chtěl aby argumenty předávané controller i návratové hodnoty metod controller, byly v nějakém lidském tvaru.
-	(2)		. Pro každou operaci, kterou je třeba zvalidovat platí, že pro argumenty, které nejsou validní je potřeba vygenerovat to co se uživateli bude jevit jako výsledek nezdařené operace.
+	(1)		. Pro každou operaci platí, že bych chtěl aby argumenty předávané controlleru i návratové hodnoty metod controlleru, byly v nějakém lidském tvaru.
+	(2)		. Pro každou operaci, kterou je třeba zvalidovat platí, že pro argumenty, které nejsou validní, je potřeba vygenerovat to, co se uživateli bude jevit jako výsledek nezdařené operace.
 	(3)		. Pro každou multivláknovou operaci platí, že po obdržení rozložené práce od optimalizéru, je potřeba vygenerovat funkce, které v samotném vlákně poběží.
 	(4)		. Pro každou multivláknovou operaci platí, že po rozběhnutí vláken se přislíbení hodnoty vrátí, ale vlákno samotné (tedy třída std::thread) musí žít dál. Tedy je potřeba si jí držet v nějakém
 				objektu s delší životností, než lokální proměnné metody. S tím souvisí i to, že je potřeba, aby vlákna někdo zničil (popřípadě znovu využil, ale někdy se zničit musí).
 
 	(1) Vcelku lidský formát vstupních argumentů mi připadá již představené typy copy_arg, move_arg, ..atd. Horší je to s návratovými hodnotami. Dejme tomu, že uživatel předá jako vstupní argument const
-	referenci a vektor copy_arg. Bude čekat, že za každý copy_arg se mu vrátí výsledek operace, v případě kopírování tedy bool. Rozvedu později.
+	referenci na vektor copy_arg. Bude čekat, že za každý copy_arg se mu vrátí výsledek operace, v případě kopírování tedy bool. Rozvedu později.
 
-	Pro další body je kritické abych si promyslel jak budu další vlákna vytvářet a jak z nich získám hodnoty. Rozhodl jsem se využít standartní knihovny, konkrétně třídy packaged_task. Ta umožňuje zabalit
-	funkci do balíčku, z něhož se snadno získá výsledek (ikdyž funkce běží v jiném vlákně), a který lze snadno předat vláknu (std::thread), který funkci provede. packaged_task se je třída typovaná dle
+	Pro další body je kritické abych si promyslel, jak budu další vlákna vytvářet a jak z nich získám hodnoty. Rozhodl jsem se využít standartní knihovny, konkrétně třídy packaged_task. Ta umožňuje zabalit
+	funkci do balíčku, z něhož se snadno získá výsledek (ikdyž funkce běží v jiném vlákně), a který lze snadno předat vláknu (std::thread), který funkci provede. packaged_task je třída typovaná dle
 	funkce, kterou bude spouštět. Můžu si tedy snadno nadefinovat netypovaný typ copy_task, který bude jen převlečený packaged_task. packaged_task vrací hodnotu skrz future, která je typovaná dle návratové
-	hodnoty funkce. Hodnota se ve future objeví potom co se ve funkci v packaged_tasku provede return __hodnota__.
+	hodnoty funkce. Hodnota se ve future objeví potom, co se ve funkci v packaged_tasku provede `return __hodnota__`.
 
-	Ať už budou vytvořené funkce z bodu (3) jakékoliv, potřebovali bychom aby nám dali vědět, jak dopadly spuštěné operace. Operace se budou spouštět s vektorem argumentů, tedy výsledek operace bude taky
+	Ať už budou vytvořené funkce z bodu (3) jakékoliv, potřebovali bychom, aby nám dali vědět, jak dopadly spuštěné operace. Operace se budou spouštět s vektorem argumentů, tedy výsledek operace bude taky
 	nějaký seznam návratových hodnot jednotlivých operací. Zde je ale problém. Pokud by operace vraceli vektor typů návratové hodnoty, pak packaged_task bude "vracet" future<vector<..>>, tedy jednotlivé
-	operace budou jakoby trvat dlouho a pak doběhnou ve stejný čas. Vzniká také problém, jak namapovat výsledek operace na operaci samotnou. Například když spustíme task s vektorem argumentů, jak víme že první
+	operace budou jakoby trvat nepřiměřeně dlouho a pak doběhnou ve stejný čas. Vzniká také problém, jak namapovat výsledek operace na operaci samotnou. Například když spustíme task s vektorem argumentů, jak víme, že první
 	výsledek se týká prvního argumentu (dalo by se vyřešit dohodnutím konvence).
 
 	O problém mapování by se ještě nějak dalo postarat konvencí (neboť budu psát generátor funkcí, vím jak se vygenerované funkce budou chovat a tedy bych se mohl spolehnout, že vrací výsledky v pořadí). Hlavní
@@ -424,7 +424,7 @@ ________________________________________________________________________________
 	hodnotu tak, abych mohl v příštích verzích jednu z předchozích možností naimplementovat, beze změny API knihovny.
 
 	Zvolím si třetí z možností. Vytvořím třídu operation_result, která v sobě bude mít kopii argumentů operace, jejíž výsledek bude reprezentovat, kopii shared_future, která bude vracet vektor návratových
-	hodnot operací a index, který určí jaký z výsledků ve vektoru je operace, kterou operation_result reprezentuje. Metody controlleru pak vždy vezmou vektor argumentů, který je určený jednomu vláknu, pro každý z
+	hodnot operací a index, který určí jaký z výsledků ve vektoru patří k operaci, kterou operation_result reprezentuje. Metody controlleru pak vždy vezmou vektor argumentů, který je určený jednomu vláknu, pro každý z
 	těchto argumentů vytvoří operation_result, vytvoří packaged_task a na její future zavolají share(), čímž dostanou shared_future, kterou můžou rozkopírovat do všech operation_result. Tuto packaged_task pak
 	přesunou do nového vlákna a tím ji spustí.
 
@@ -433,9 +433,8 @@ ________________________________________________________________________________
 	(2) Chybové situace se už snadno vyřeší přidáním zvláštního konstruktoru operation_result, který bude brát vyjímku. Až si uživatel zažádá o výsledek, operation_result vyjímku vyhodí.
 
 	(3) Na toto stačí napsat funkci, která nejprve inicializuje vektor návratových hodnot operace a postupně provádí operaci pro předané argumenty a ukládá si její výsledek (-- Pozor na odchytávání vyjímek).
-	Zde bude třeba trochu upravit interface metod v jmenném prostoru operate.
 
-	(4) Toto už je větší oříšek. Jelikož se jedná o složitou úlohu, vyhradil bych si na ní novou třídu (thread_pool). Ta by měla za úkol, udržovat si seznam naalokovaných vláken, na přání poskytnout nové 
+	(4) Toto už je větší oříšek. Jelikož se jedná o složitou úlohu, vyhradil bych si na ní novou třídu (thread_pool). Ta by měla za úkol udržovat si seznam naalokovaných vláken, na přání poskytnout nové 
 	a starat se o dealokaci nepoužívaných.
 
 ___________________________________________________________________________________________________________________________________________________________
@@ -457,7 +456,7 @@ ________________________________________________________________________________
 			(2) argumenty, se kterými byla operace spouštěná (operation_result::argument_t operation_result::operation_arguments)
 		
 		. Třída dokáže vrátit výsledek operace (operation_result::return_t operation_result::get)
-			--> pokud už nezná výsledek zavolá get na shared_future, jinak použije nacachovanou hodnotu - kvůli pravděpodobnému dlouhému kopírování vektorů jsem použil referenci, neměl by být problém, sdílený
+			--> pokud už nezná výsledek, zavolá get na shared_future, jinak použije nacachovanou hodnotu - kvůli pravděpodobnému dlouhému kopírování vektorů jsem použil referenci, neměl by být problém, sdílený
 			stav žije do té doby, kdy žije poslední shared_future, né dokud žije promise/packaged_task, který jeho obsah naplnil. 
 
 		Jelikož třída slouží jako náhled do dění (uživatel se kouká jaká operace to byla, kouká se jaký výsledek to byl) operation_result vrací vlastně jen konstantní reference. Nechává tak na uživateli aby si
@@ -500,8 +499,8 @@ ________________________________________________________________________________
 		. Napsat testy pro thread_pool 														//POSSIBLE TODO
 		. Přejmenovat třídu mfo v dokumentaci na controller									//DONE
 		. Napsat nějaké testy pro mfo														//DONE
-		. Přečíst si po sobě log															//TODO
-		. Shrnout práci																		//TODO
+		. Přečíst si po sobě log															//DONE
+		. Shrnout práci																		//DONE
 		. Napsat složitější optimalizer														//DONE
 		. Přejmenovat optimalizer na one_thread_optimalizer									//DONE
 		. Otestovat mfo i se složitějším optimalizerem										//DONE
@@ -510,12 +509,12 @@ ________________________________________________________________________________
 ___________________________________________________________________________________________________________________________________________________________
 29.4. 2019	Třída controller
 
-	Až teď jsem prozřel, že pojmenovat třídu stejně jako namespace není moudré. Proto třídu přejmenovávám na controller.
+	Až teď jsem prozřel, že pojmenovat třídu stejně jako namespace není moudré. Proto třídu přejmenovávám na controller (dříve se jmenovala "mfo", zpětně jsem zasáhl do logu, abych předešel zmatení čtenářů).
 
 	- Interface
 
 		. Jelikož třída má umět pracovat s libovolným optimalizérem, bude muset být typovaná dle typu optimalizéru.
-		. Třída bude mít sadu funkcí pr každou operaci(krom třídění - potom):
+		. Třída bude mít sadu funkcí pro každou operaci(krom třídění - potom):
 			(1) public funkci, kterou bude volat uživatel
 			(2) private funkci, která k dané operaci bude představovat spouštěný task
 		
@@ -526,11 +525,11 @@ ________________________________________________________________________________
 			. na thread_poolu tasky spustí a vrátí vektor operation_result
 		
 		(2) budou postupovat následovně:
-			. vytvoří si vektor boolů
+			. vytvoří si vektor návratových hodnot operací
 			. pro každý argument zapíšou výsledek do vektoru
-			--> je důležité aby tato funkce dodržela pořadí výsledů a argumentů, jinak budou výsledky pomíchané
+			--> je důležité, aby tato funkce dodržela pořadí výsledů a argumentů, jinak budou výsledky pomíchané
 
-		--> u (2) vzniká problém. Pokud operace selže, můžeme vrátit už jen false. Toto mi došlo až teď a tedy jsem s tím rozhodně nepočítal. Ale po nějakém uvažování mi došlo, že to nemusí být až tak marné.
+		--> u (2) vzniká problém. Pokud operace selže, můžeme vrátit už jen false/defaultní hodnotu návratového typu. Toto mi došlo až teď a tedy jsem s tím rozhodně nepočítal. Ale po nějakém uvažování mi došlo, že to nemusí být až tak marné.
 		Pokud budu optimista můžu uvažovat s předpoklady:
 			. uživatel ví co dělá, tedy nepíše kód stylem "zkusím to, ona mě knihovna kdyžtak varuje"
 			. v příštích verzích (které by mohly být uživatelsky přívětivější) bude namespace validate již rozšířenější a bude odchytávat víc chyb
@@ -542,8 +541,8 @@ ________________________________________________________________________________
 ___________________________________________________________________________________________________________________________________________________________
 30.4. 2019	Testování
 
-	. Objevil se problém, že stl kontejnery vlastně neumožňují move-out operace. Všechno jsou převlečené copy ctory či assignmenty. Jedna vyjímka je unordered_set a unordered_map, které dovolují extractovat
-	elementy tak jak bych si přál. Problém je, že v tascích potřebuju udržet pořadí a tak bych si stejnak moc nepomohl. Hlavní problém, jsou argumenty, které cestují skrz celou knihovnu:
+	. Objevil se problém, že stl kontejnery vlastně neumožňují move-out operace (stále s otazníkem zda toto tvrzení platí). Všechno jsou převlečené copy ctory či assignmenty. Jedna vyjímka je unordered_set a unordered_map, 
+	které dovolují extractovat elementy tak jak bych si přál. Problém je, že v tascích potřebuju udržet pořadí a tak bych si stejnak moc nepomohl. Hlavní problém, jsou argumenty, které cestují skrz celou knihovnu:
 
 		(1) uživatel předá referenci na argument controlleru
 		(2) controller je buď překopíruje už do operation_result(nevalidní argumenty se v knihovně dále nekopírují) nebo do vektoru validních argumentů
@@ -553,35 +552,36 @@ ________________________________________________________________________________
 	Tedy sečteno podtrženo, každý argument se v nejhorším případě kopíruje 3x. Pokud by optimalizér pracoval s unordered_map nebo unordered_set, dal by se počet kopírování snížit na 1. (Nesnížil -> viz. 1.5.)
 
 
-	. Tasky jsou nyní statické (mělo mě to napadnout)
+	. Tasky jsou už nyní statické (mělo mě to napadnout)
 
 	. Vzhledem k tomu, že shared_future stejně vrací referenci, připadá mi nesmyslné si tu referenci cachovat abych si ušetřil jedno volání. Navíc se čeká, že uživatel si zjistí výsledek párkrát. Tedy
-	operation_result si už necachuje výsledek.
+	operation_result si už cachuje hodnotu (a né referenci na ní).
 
 	. std::thread si žádá aby byla kompilace zadána z příznakem "-pthread"
 
-	. Jak se ukázalo, std::thread ve svém destruktoru nečeká až vlákno doběhne a jak vyskakující vyjímky ukázaly, je nutné aby se na doběhnutí vlákna čekalo. Tedy thread_pool ve svém 
+	. Jak se ukázalo, std::thread ve svém destruktoru nečeká až vlákno doběhne a jak vyskakující vyjímky ukázaly, je nutné, aby se na doběhnutí vlákna čekalo. Tedy thread_pool ve svém 
 	destrkutoru bude čekat až vlákna v thread_poolu i vlákno gc doběhnou.
 
 	. Hlášení vyjímek vypadalo divně ("filesystem error: mfo::operate::remove : /tmp/test_copy.txt does not exist: Success [/tmp/test_copy.txt]"), změnil jsem defaultní použitý error_code na -1 v kategorii
-	std::system_category() 
+	std::system_category(). Po změně hlášení uvádí místo Succes, Unknown error -1.
 
 	
-Po napsání pár testů jsem rozhodnutý prohlásit, že žádné velké chyby ve validate nejsou (,proto je nyní z todo, possible todo).
+Po napsání pár testů jsem rozhodnutý prohlásit, že žádné velké chyby v knihovně nejsou.
 
 ___________________________________________________________________________________________________________________________________________________________
 1.5. 2019	Refactoring kódu
 
 	Rozhodl jsem se zlepšit trochu přehlednost kódu a zmenšit jeho velikost následujícími zákroky:
 
-		. Validátor i Optimalizér musí mít odteď jen jednu povinnou metodu, která validuje/optimalizuje dle templatov0ho argumentu (statický if constexpr)
+		. Validátor i Optimalizér musí mít odteď jen jednu povinnou metodu, která validuje/optimalizuje dle templatového argumentu (statický if constexpr)
 			--> Aby mechanizmus mohl fungovat přidal jsem k find_arg a find_recursive_arg i vnitřní typ predicate_t, za pomocí kterého se pak už rovnost na typ dá provést
 			--> Jelikož move_arg byl defakto stejný typ jako copy_arg, statické rozhodování nefungovalo. Musel jsem tedy napsat nový typ move_arg, který je ale pouze zkopírovaný copy_arg
 
 		. Tím mohou být všechny public metody controlleru přepsány do jedné generické metody (jelikož až na typy dělaly prakticky to samé)
 	
-	Navíc jsem se pokusil u optimalizéru změnit interface. Pak jsem si ale uvědomil, že ikdyž má unordered_map v interfacu extract, vrací jen node, který sice vlastní původní hodnotu v mapě, ale stále neumožňuje jí movenout z nodu
-	samotného. Proto jsem se vrátil zpět k vektorové verzi. Navíc jsem zjistil pozoruhodnou věc. I přestože operator[] vrací reference, std::move(vec[0]), volá move-ctor.
+	Navíc jsem se pokusil u optimalizéru změnit interface (výše zmíněný předchod z vektoru na unordered_map/unordered_set). Pak jsem si ale uvědomil, že ikdyž má unordered_map v interfacu extract, vrací jen node, který sice
+	vlastní původní hodnotu v mapě, ale stále neumožňuje jí movenout z nodu samotného. Proto jsem se vrátil zpět k vektorové verzi. Navíc jsem zjistil pozoruhodnou věc. I přestože operator[] vrací reference,
+	std::move(vec[0]), volá move-ctor.
 
 
 ___________________________________________________________________________________________________________________________________________________________
@@ -592,3 +592,37 @@ ________________________________________________________________________________
 	Při přepisování kódu jsem narazil na to, že předávané predikáty nemusí mít move assignment. Navíc když jsem se podíval do testovaného příkladu, zjistil jsem, že používat ten samý predikát
 	pro více (i sekvenciálních) find operací je nemožné, protože celý predikát přesouvám dovnitř argumentu. Rozhodl jsem se tedy kód přepsat tak, že predikáty jsou používané pouze přes pointer.
 	Využívám pointer, jelikož bych chtěl pro všechny arg_types mít defaultní konstrkuktor. Do reference by se tedy muselo něco vložit, lepší než vymýšlet nějaké defaultní funkce mi připadá použít nullptr.
+
+___________________________________________________________________________________________________________________________________________________________
+3.5. 2019 Shrnutí práce
+
+	Práci na tomto projektu tímto pozastavuji na neurčito. Domnívám se, že zadání jsem splnil a ikdyž by se v práci dalo jistě pokračovat, neplodila by tak velké výsledky, jako práce dosud provedená a jednalo by se spíše o
+	optimalizační změny v kódu.
+
+	Bylo dokončeno:
+
+		. Jmenný prostor operate umí:
+			(1) kopírovat jeden soubor na libovolné místo na disku
+			(2) přesunout jeden soubor na libovolné místo na disku
+			(3) smazat rekurzivně adresář či soubor
+			(4) vyhledat soubor či adresář ležící v hloubce jedna v libovolném adresáři na disku
+			(5) vyhledat soubor ležící v libovolném adresáři na disku v libovolné hloubce
+		. Jmenný prostor validate umí odhalit nějaké nevalidní argumenty pro všechny operace
+		. Existují dva optimalizéry, první z nich slouží spíše k debugování a je velmi jednoduchý (one_thread_optimalizer), druhý z nich už je trošku blíže k implementaci opravdového optimalizéru (even_optimalizer)
+		. Existuje třída thread_pool, která dokáže spustit libovolnou funkci v novém vlákně a stará se o vlákna již ukončená
+		. Existuje třída controller, která nabízí ovladač k celé knihovně a tedy umožňuje provést jakoukoliv operaci v jmenném prostoru operate ve více vláknech, tak jak určí daný optimalizér
+	
+		. Existují dva testové soubory, jeden z nich testuje knihovnu jako celek, druhý se zabývá spíše fungováním jmenného prostoru operate (tedy i std::filesystem)
+		. Knihovna v rámci běžných případů funguje
+	
+	Co by se ještě dalo dodělat:
+
+		. Pro nasazení knihovny do opravdové aplikace by bylo potřeba provést více komplexnějších testů a zjistit zda knihovna neleakuje nějaké zdroje
+		. Aby knihovna vůbec nabízela nějaké urychlení (ve srovnání s jednovláknovou verzí), měla by se zoptimalizovat. Hlavní optimalizace by měly zahrnovat:
+			(1) Rychlejší optimalizér
+			(2) Rozšíření jmenného prostoru validate - odchytávání více chybných argumentů
+			(3) Chytřejší rozšíření thread_poolu, které by mimo jiné vlákna recyklovalo
+		. Předělat systém vracení výsledků, aby výsledky operací, prováděných sekvenčně v jednom vlákně se objevovaly jako splněné ve vlákně druhém, tak jak je první vlákno provádí. Zejména je nešikovné, že si uživatel nemůže
+		počkat právě na jeden výsledek operace, pokud tato operace neběží ve vlákně sama.
+	
+	Knihovna je zatím tedy v dobrém stavu, jelikož je dobře dokumentovaná, její architektura je jednoduchá a nabízí možnosti k rozšíření a hlavně její jádro je funkční a dělá to co má.
