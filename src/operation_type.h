@@ -1,6 +1,5 @@
 #ifndef MFO_OPERTAION_TYPE_HEADER
 #define MFO_OPERTAION_TYPE_HEADER
-#pragma once
 
 namespace mfo {
 

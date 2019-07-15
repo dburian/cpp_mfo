@@ -1,6 +1,5 @@
 #ifndef MFO_VALIDATE_HEADER
 #define MFO_VALIDATE_HEADER
-#pragma once
 
 #include <filesystem>
 

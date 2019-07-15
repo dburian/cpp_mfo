@@ -1,6 +1,5 @@
 #ifndef MFO_ONE_THREAD_OPTIMALIZER_HEADER
 #define MFO_ONE_THREAD_OPTIMALIZER_HEADER
-#pragma once
 
 #include <unordered_map>
 #include <vector>

@@ -1,6 +1,6 @@
 #ifndef MFO_CONTROLLER_HEADER
 #define MFO_CONTROLLER_HEADER
-#pragma once
+
 
 #include <filesystem>
 #include <future>

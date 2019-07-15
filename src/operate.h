@@ -1,6 +1,5 @@
 #ifndef MFO_OPERATE_HEADER
 #define MFO_OPERATE_HEADER
-#pragma once
 
 #include <algorithm>
 #include <filesystem>

@@ -1,6 +1,5 @@
 #ifndef MFO_ARG_TYPES_HEADER
 #define MFO_ARG_TYPES_HEADER
-#pragma once
 
 #include <filesystem>
 #include <unordered_map>

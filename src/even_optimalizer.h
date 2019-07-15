@@ -1,6 +1,5 @@
 #ifndef MFO_EVEN_OPTIMALIZER_HEADER
 #define MFO_EVEN_OPTIMALIZER_HEADER
-#pragma once
 
 #include <vector>
 

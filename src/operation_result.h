@@ -1,6 +1,5 @@
 #ifndef MFO_OPERATION_RESULT_HEADER
 #define MFO_OPERATION_RESULT_HEADER
-#pragma once
 
 #include <filesystem>
 #include <future>

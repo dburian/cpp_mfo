@@ -1,6 +1,5 @@
 #ifndef MFO_THREAD_POOL_HEADER
 #define MFO_THREAD_POOL_HEADER
-#pragma once
 
 #include <condition_variable>
 #include <mutex>
