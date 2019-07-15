@@ -636,3 +636,80 @@ ________________________________________________________________________________
 	I zde je možné později provádět optimalizace, jelikož návratová hodnota z std::thread::hardware_concurrency by se dle dokumentace měla používat pouze jako hint, tedy dává smysl si s tímto číslem hrát.
 
 	Upravil jsem i mfo_test.cpp aby používala tyto nově přidané funkce.
+
+___________________________________________________________________________________________________________________________________________________________
+15.7. 2019 Finální shrnutí práce
+
+	Architektura knihovny
+
+		Knihovna se skládá z těchto hlavních částí:
+			. controller
+			. optimalizer
+			. thread_pool
+			. operate namespace
+			. validate namespace
+		
+		1) controller
+			Controller tvoří celé API knihovny. Controller tak zaštiťuje celou funkčnost knihovny.
+			Při zavolání controlleru s nějakou operací X controller provede tyto úkony:
+				- Zvaliduje argumenty operace
+				- Zavolá optimalizer, který zoptimalizuje operaci do vláken
+				- Předá argumenty thread_poolu, který je spustí na nějakém vlákně
+				- Vrátí slib výsledné hodnoty operace
+		
+		2) optimalizer
+			Optimalizer přerozděluje argumenty do nějakých "poliček", přičemž každá polička představuje práci pro jedno vlákno. V důsledku tedy rozhoduje, jak se operace bude paralelizovat.
+			Optimalizer je vlastně pouze pojmenovaný požadavek na libovolnou třídu. V praxi to znamená, že optimalizer musí mít jednu funkci, která pro seznam argumentů vrací seznam seznamů argumentů.
+		
+		3) thread_pool
+			Thread_pool se stará o probíhající vlákna, vytváří nová vlákna a ty ukončená dealokuje.
+			Thread_pool si udržuje garbage-collector vlákno, které čistí seznam vláken od těch, které už doběhly.
+		
+		4) operate namespace
+			Namespace operate shromažďuje všechny tasky, které knihovna umí provádět vícevláknově. Funkce v operate tedy představují jednu jednotku práce v jednom vlákně (např.: jednovláknové zkopírování jednoho souboru).
+		
+		5) validate namespace
+			Namespace validate shromažďuje všechny validační funkce, pro všechny operace knihovny. Validační funkce vrací pro dané argumenty boolean. Navíc pokud vrací false, vrátí i error kód.
+		
+
+	Technické řešení vícevláknovosti
+
+		Vícevláknovost je obalená několika abstrakcemi, které se různě prolínají a propojují. Vynasnažím se je vysvětlit srozumitelně a odlišit dle toho, z jakého pohledu se na problém vícevláknovosti koukáme:
+
+			-Z hlediska rozdělení práce
+				Jednotku práce zde představuje jeden argument pro danou operaci. Jeden argument může být jedno jméno souboru (např. pro find) nebo dvojice jmen souborů (např. pro move). Optimalizer rozděluje
+				argumenty do seznamů argumentů, kde každý seznam určuje jedno vlákno. Controller pro každé vlákno vytvoří task, který sekvenčně spouští danou operaci pro všechny argumenty. Task se rozeběhne
+				jako packaged_task v thread_poolu v nějakém vlákně.
+
+			-Z hlediska návratové hodnoty
+				Každá jednotka práce má návratovou hodnotu. Bylo potřeba zavést abstrakci, jelikož jednotky práce můžou mít z principu různé typy výsledků:
+					. libovolný výsledek práce, která se provedla v nějakém vlákně
+					. neznámý výsledek práce, která neprošla validační funkcí a tedy vůbec nebyla spuštěna
+					. záporný výsledek práce, která sice prošla validační funkcí ale při jejím provedení vznikla vyjímka
+				Proto každá operace v controlleru vrací seznam výsledků práce (operation_result), který zachytává všechny možné typy výsledků operace a hlásí uživateli jak konkrétní jednotka práce dopadla.
+
+			-Z hlediska identifikace návratové hodnoty
+				Jelikož tasky můžou vykonávat jednu ale i více jednotek práce a zároveň chci, aby operace v controlleru vraceli pro každou jednotku práce jeden výsledek, je nutné zavést mapování z tasků na jednotky práce.
+				Tedy každý výsledek jednotky práce má v sobě odkaz na packaged_task (konkrétně na future tohoto tasku) a navíc i index, který určuje kolikátý výsledek v tasku představuje tento výsledek jednotky práce.
+				V důsledku to znamená, že packaged_task musí mít shared_future, pokud se ptáme na výsledek z nějakého tasku, musí nejdříve doběhnout všechna práce v tomto tasku a tasky nemůžou míchat pořadí vstupních argumentů
+				a výstupních výsledků.
+		
+			-Z hlediska životnosi tasku/vlákna
+				Jelikož spuštěné vlákno s taskem je třeba udržet při životě i po návratu z libovolné funkce v controlleru, je nutné aby probíhající vlákna někde žily. Tento prostor jsem nazval thread_poolem. Vlákna
+				tedy vznikají, žijí i zanikají v thread_poolu.
+	
+		Život tasku tedy probíhá následovně (pokud jsou argumenty validní):
+			. z argumentů optimalizer určí nějaké konkrétní jednotky práce, které se v tasku spustí
+			. dle typu operace se vytvoří task
+			. z tasku si controller zapamatuje future a vytvoří z něj výsledek operace
+			. task i argumenty se předají thread_poolu
+			. thread_pool task na argumentech spustí v nějakém vlákně
+			. controller vrátí výsledek operace
+			Poté co si uživatel na výsledku operace zavolá get():
+			. výsledek operace zavolá get() na future
+			. pokud vlákno s taskem, který vrací odpovídající výsledek ještě nedoběhlo, program počká na jeho doběhnutí
+			. task skončí, future vrátí výsledek, který obratem vrátí i výsledek operace
+			. někdy v budoucnu thread_pool narazí na doběhnuté vlákno a dealokuje ho
+
+
+			
