@@ -69,7 +69,7 @@ std::vector<ResultType> mfo::controller<Optimalizer>::multithreaded_operation(co
 
     for(const ArgType& arg: args) {
         if(!mfo::validate::validate_arbitrary(arg, err)) 
-            results.emplace_back(std::move(err), mfo::operation_type::copy, arg);
+            results.emplace_back(std::move(err), oper_t, arg);
         else
             validArgs.push_back(arg);                                               // First copy of argument
     }
@@ -85,7 +85,7 @@ std::vector<ResultType> mfo::controller<Optimalizer>::multithreaded_operation(co
         auto sharedF = task.get_future().share();
 
         for(std::size_t i = 0; i < v.size(); ++i)
-            results.emplace_back(sharedF, i, mfo::operation_type::copy, v[i]);
+            results.emplace_back(sharedF, i, oper_t, v[i]);
         
         m_threads.start_thread(std::move(task), std::move(v));
     }

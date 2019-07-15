@@ -15,7 +15,9 @@ namespace mfo {
         using argument_t = ArgumentType;
         using return_t = ReturnType;
 
-        operation_result(const std::shared_future<std::vector<return_t>>& res, std::size_t index, operation_type&& oper_t, const argument_t& arg)
+        operation_result(const std::shared_future<std::vector<return_t>>& res, std::size_t index, operation_type
+        
+         oper_t, const argument_t& arg)
             : m_holds_error_state{false}, m_res_retrieved{false}, m_err{"", std::error_code()}, m_res{res}, m_index{index}, m_arg{arg}, m_oper_t{std::move(oper_t)} {}
 
         operation_result(std::filesystem::filesystem_error&& err, operation_type oper_t, const argument_t& arg)
