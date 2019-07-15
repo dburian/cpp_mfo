@@ -626,3 +626,13 @@ ________________________________________________________________________________
 		počkat právě na jeden výsledek operace, pokud tato operace neběží ve vlákně sama.
 	
 	Knihovna je zatím tedy v dobrém stavu, jelikož je dobře dokumentovaná, její architektura je jednoduchá a nabízí možnosti k rozšíření a hlavně její jádro je funkční a dělá to co má.
+
+___________________________________________________________________________________________________________________________________________________________
+15.7. 2019 Defaultní počet maximálních vláken
+
+	Rozšířil jsem API controlleru o funkce, které volají operaci, ale nepožadují maximální počet vláken. Tyto funkce si odvodí maximální počet vláken z funkce std::thread::hardware_concurrency, která vrací
+	maximální počet vláken, které jsou schopné běžet paralelně.
+
+	I zde je možné později provádět optimalizace, jelikož návratová hodnota z std::thread::hardware_concurrency by se dle dokumentace měla používat pouze jako hint, tedy dává smysl si s tímto číslem hrát.
+
+	Upravil jsem i mfo_test.cpp aby používala tyto nově přidané funkce.

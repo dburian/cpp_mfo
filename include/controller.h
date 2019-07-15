@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <future>
+#include <thread>
 #include <vector>
 
 #include "../src/arg_types.h"
@@ -21,13 +22,23 @@ namespace mfo{
         using optimalizer_t = Optimalizer;
 
         std::vector<copy_operation_result> copy(const std::vector<copy_arg>& args, std::size_t num_of_threads);
+        std::vector<copy_operation_result> copy(const std::vector<copy_arg>& args);
+
         std::vector<move_operation_result> move(const std::vector<move_arg>& args, std::size_t num_of_threads);
+        std::vector<move_operation_result> move(const std::vector<move_arg>& args);
+
         std::vector<remove_operation_result> remove(const std::vector<remove_arg>& args, std::size_t num_of_threads);
+        std::vector<remove_operation_result> remove(const std::vector<remove_arg>& args);
 
         template<class UnaryPredicate>
         std::vector<find_operation_result<UnaryPredicate>> find(const std::vector<find_arg<UnaryPredicate>>& args, std::size_t num_of_threads);
         template<class UnaryPredicate>
+        std::vector<find_operation_result<UnaryPredicate>> find(const std::vector<find_arg<UnaryPredicate>>& args);
+
+        template<class UnaryPredicate>
         std::vector<find_recursive_operation_result<UnaryPredicate>> find_recursive(const std::vector<find_recursive_arg<UnaryPredicate>>& args, std::size_t num_of_threads);
+        template<class UnaryPredicate>
+        std::vector<find_recursive_operation_result<UnaryPredicate>> find_recursive(const std::vector<find_recursive_arg<UnaryPredicate>>& args);
 
     private:
         using copy_task_t = std::packaged_task<std::vector<bool>(std::vector<copy_arg>&&)>;
@@ -44,6 +55,8 @@ namespace mfo{
 
         template<class ArgType, class TaskReturnType>
         std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)> create_task();
+
+        unsigned int determine_max_number_of_threads();
 
         static std::vector<bool> copy_task(std::vector<copy_arg>&& args);
         static std::vector<bool> move_task(std::vector<move_arg>&& args);
@@ -114,18 +127,35 @@ std::packaged_task<std::vector<TaskReturnType>(std::vector<ArgType>&&)> mfo::con
 }
 
 template<class Optimalizer>
+unsigned int mfo::controller<Optimalizer>::determine_max_number_of_threads() {
+    return std::thread::hardware_concurrency();
+}
+
+template<class Optimalizer>
 std::vector<mfo::copy_operation_result> mfo::controller<Optimalizer>::copy(const std::vector<mfo::copy_arg>& args, std::size_t num_of_threads) {
     return multithreaded_operation<mfo::copy_arg, mfo::copy_operation_result>(args, num_of_threads, mfo::operation_type::copy);
+}
+template<class Optimalizer>
+std::vector<mfo::copy_operation_result> mfo::controller<Optimalizer>::copy(const std::vector<mfo::copy_arg>& args) {
+    return multithreaded_operation<mfo::copy_arg, mfo::copy_operation_result>(args, determine_max_number_of_threads(), mfo::operation_type::copy);
 }
 
 template<class Optimalizer>
 std::vector<mfo::move_operation_result> mfo::controller<Optimalizer>::move(const std::vector<mfo::move_arg>& args, std::size_t num_of_threads) {
     return multithreaded_operation<mfo::move_arg, mfo::move_operation_result>(args, num_of_threads, mfo::operation_type::move);
 }
+template<class Optimalizer>
+std::vector<mfo::move_operation_result> mfo::controller<Optimalizer>::move(const std::vector<mfo::move_arg>& args) {
+    return multithreaded_operation<mfo::move_arg, mfo::move_operation_result>(args, determine_max_number_of_threads(), mfo::operation_type::move);
+}
 
 template<class Optimalizer>
 std::vector<mfo::remove_operation_result> mfo::controller<Optimalizer>::remove(const std::vector<mfo::remove_arg>& args, std::size_t num_of_threads) {
     return multithreaded_operation<mfo::remove_arg, mfo::remove_operation_result>(args, num_of_threads, mfo::operation_type::remove);
+}
+template<class Optimalizer>
+std::vector<mfo::remove_operation_result> mfo::controller<Optimalizer>::remove(const std::vector<mfo::remove_arg>& args) {
+    return multithreaded_operation<mfo::remove_arg, mfo::remove_operation_result>(args, determine_max_number_of_threads(), mfo::operation_type::remove);
 }
 
 template<class Optimalizer>
@@ -133,11 +163,21 @@ template<class UnaryPredicate>
 std::vector<mfo::find_operation_result<UnaryPredicate>> mfo::controller<Optimalizer>::find(const std::vector<mfo::find_arg<UnaryPredicate>>& args, std::size_t num_of_threads) {
     return multithreaded_operation<mfo::find_arg<UnaryPredicate>, mfo::find_operation_result<UnaryPredicate>>(args, num_of_threads, mfo::operation_type::find);
 }
+template<class Optimalizer>
+template<class UnaryPredicate>
+std::vector<mfo::find_operation_result<UnaryPredicate>> mfo::controller<Optimalizer>::find(const std::vector<mfo::find_arg<UnaryPredicate>>& args) {
+    return multithreaded_operation<mfo::find_arg<UnaryPredicate>, mfo::find_operation_result<UnaryPredicate>>(args, determine_max_number_of_threads(), mfo::operation_type::find);
+}
 
 template<class Optimalizer>
 template<class UnaryPredicate>
 std::vector<mfo::find_recursive_operation_result<UnaryPredicate>> mfo::controller<Optimalizer>::find_recursive(const std::vector<mfo::find_recursive_arg<UnaryPredicate>>& args, std::size_t num_of_threads) {
     return multithreaded_operation<mfo::find_recursive_arg<UnaryPredicate>, mfo::find_recursive_operation_result<UnaryPredicate>>(args, num_of_threads, mfo::operation_type::find_recursive);
+}
+template<class Optimalizer>
+template<class UnaryPredicate>
+std::vector<mfo::find_recursive_operation_result<UnaryPredicate>> mfo::controller<Optimalizer>::find_recursive(const std::vector<mfo::find_recursive_arg<UnaryPredicate>>& args) {
+    return multithreaded_operation<mfo::find_recursive_arg<UnaryPredicate>, mfo::find_recursive_operation_result<UnaryPredicate>>(args, determine_max_number_of_threads(), mfo::operation_type::find_recursive);
 }
 
 

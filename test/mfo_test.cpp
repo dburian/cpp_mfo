@@ -21,7 +21,7 @@ void test_copy(const std::vector<mfo::copy_arg>& args, mfo::controller<Optimaliz
         ++i;
     }
 
-    auto&& res = c.copy(args, 5);
+    auto&& res = c.copy(args);
 
     std::cout << "Results: " << std::endl;
     i = 0;
@@ -50,11 +50,11 @@ void test_remove(const std::vector<mfo::remove_arg>& args, mfo::controller<Optim
     std::size_t i = 1;
     for(auto&& a: args) {
         std::cout << i << ")" << std::endl;
-        std::cout << "\ttarget; " << a.target << std::endl;
+        std::cout << "\ttarget: " << a.target << std::endl;
         ++i;
     }
 
-    auto&& res = c.remove(args, 5);
+    auto&& res = c.remove(args);
 
     std::cout << "Results: " << std::endl;
     i = 0;
@@ -86,7 +86,7 @@ void test_move(const std::vector<mfo::move_arg>& args, mfo::controller<Optimaliz
         ++i;
     }
 
-    auto&& res = c.move(args, 5);
+    auto&& res = c.move(args);
 
     std::cout << "Results: " << std::endl;
     i = 0;
@@ -118,7 +118,7 @@ void test_find(const std::vector<mfo::find_arg<UnaryPredicate>>& args, mfo::cont
         ++i;
     }
 
-    auto&& res = c.find(args, 5);
+    auto&& res = c.find(args);
 
     std::cout << "Results: " << std::endl;
     i = 0;
@@ -153,7 +153,7 @@ void test_find_recursive(const std::vector<mfo::find_recursive_arg<UnaryPredicat
         ++i;
     }
 
-    auto&& res = c.find_recursive(args, 5);
+    auto&& res = c.find_recursive(args);
 
     std::cout << "Results: " << std::endl;
     i = 0;
